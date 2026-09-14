@@ -29,10 +29,10 @@
   ],
   "scripts": {
     "prepare": "git config core.hooksPath .githooks",
-    "build": "nx run-many -t build",
-    "verify": "nx run-many -t verify",
-    "test": "nx run-many -t test:unit",
-    "graph": "nx graph",
+    "build": "npx nx run-many -t build",
+    "verify": "npx nx run-many -t verify",
+    "test": "npx nx run-many -t test:unit",
+    "graph": "npx nx graph",
     "generate:services": "node ./src/generators/runServicesGenerator.js"
   },
   "keywords": [
@@ -50,9 +50,9 @@
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
-    "@vitest/ui": "^4.0.18",
     "eslint": "^10.0.2",
     "fast-xml-parser": "^5.4.1",
+    "nx": "^23.2.1",
     "tsup": "^8.3.5",
     "typescript": "^6.0.2",
     "vitest": "^4.0.18"
