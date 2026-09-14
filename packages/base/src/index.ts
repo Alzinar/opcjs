@@ -54,6 +54,7 @@ export { TcpMessageDecoupler } from './transports/ws/tcpMessageDecoupler.js';
 export { TcpMessageInjector } from './transports/ws/tcpMessageInjector.js';
 export { TcpConnectionHandler } from './transports/ws/tcpConnectionHandler.js';
 export { SecureChannelFacade } from './secureChannel/secureChannelFacade.js';
+export { ChannelClosedError } from './secureChannel/pendingRequests.js';
 export { SecureChannelContext } from './secureChannel/secureChannelContext.js';
 export { SecureChannelMessageDecoder } from './secureChannel/secureChannelMessageDecoder.js';
 export { SecureChannelMessageEncoder } from './secureChannel/secureChannelMessageEncoder.js';

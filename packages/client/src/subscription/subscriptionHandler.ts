@@ -1,4 +1,5 @@
 import {
+    ChannelClosedError,
     DataChangeNotification,
     ExpandedNodeId,
     getLogger,
@@ -54,6 +55,20 @@ export class SubscriptionHandler {
     /** Returns true when there are registered subscription entries (even if the loop is not running). */
     hasEntries(): boolean {
         return this.entries.length > 0
+    }
+
+    /**
+     * Stops the publish loop and detaches the reconnect callbacks.
+     *
+     * Call this during an explicit `Client.disconnect()`, before tearing down the
+     * channel: closing the channel now rejects any in-flight Publish request, and
+     * without this the resulting `onPublishError` would trigger an unwanted
+     * auto-reconnect right after the application asked to disconnect.
+     */
+    stop(): void {
+        this.isRunning = false
+        this.onShutdown = undefined
+        this.onPublishError = undefined
     }
 
     /**
@@ -114,7 +129,13 @@ export class SubscriptionHandler {
         try {
             response = await this.subscriptionService.publish(pendingAcknowledgements)
         } catch (err) {
-            this.logger.error(`Publish failed, stopping publish loop: ${err}`)
+            // A closed channel isn't a real failure — it's expected on disconnect or
+            // reconnect, so it doesn't warrant an error-level log.
+            if (err instanceof ChannelClosedError) {
+                this.logger.debug(`Publish loop stopped: ${err.message}`)
+            } else {
+                this.logger.error(`Publish failed, stopping publish loop: ${err}`)
+            }
             this.isRunning = false
             this.publishInFlight = false
             this.onPublishError?.()

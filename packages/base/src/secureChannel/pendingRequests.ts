@@ -6,6 +6,20 @@ type Resolver = {
 };
 
 /**
+ * Rejection reason used by {@link PendingRequests.failAll} when the channel is
+ * closed (explicitly or because the transport ended) rather than because a
+ * request actually failed.  Lets callers tell "nothing to worry about, the
+ * channel is just gone" apart from real protocol errors (`ServiceFault`,
+ * `Abort`, decode errors, ...) without treating a normal shutdown as one.
+ */
+export class ChannelClosedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ChannelClosedError";
+  }
+}
+
+/**
  * Correlates outgoing OPC UA service requests with their incoming responses.
  *
  * {@link SecureChannelWritable} registers a pending entry (keyed by `requestId`)

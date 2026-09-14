@@ -579,6 +579,10 @@ export class Client {
   async disconnect(): Promise<void> {
     this.logger.info('Disconnecting from OPC UA server...')
     this.stopKeepAlive()
+    // Detach reconnect callbacks before tearing down the channel below: closing it
+    // rejects any in-flight Publish request, which would otherwise trigger an
+    // unwanted auto-reconnect right after an intentional disconnect.
+    this.subscriptionHandler?.stop()
 
     if (this.session && this.sessionHandler) {
       try {

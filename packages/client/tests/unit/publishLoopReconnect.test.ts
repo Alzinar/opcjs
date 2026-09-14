@@ -11,7 +11,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { NodeId } from 'opcjs-base'
+import { ChannelClosedError, NodeId } from 'opcjs-base'
 
 import { Client } from '../../src/client.js'
 import { ConfigurationClient } from '../../src/configuration/configurationClient.js'
@@ -57,6 +57,24 @@ describe('SubscriptionHandler – publish error callback', () => {
     expect(onPublishError).toHaveBeenCalledOnce()
   })
 
+  it('still fires onPublishError when publish rejects with a ChannelClosedError', async () => {
+    // A closed channel isn't logged as a failure, but it must still trigger the
+    // reconnect path — the connection is just as unusable either way.
+    const publish = vi.fn().mockRejectedValue(new ChannelClosedError('SecureChannel connection closed'))
+    const handler = new SubscriptionHandler(
+      { createSubscription: vi.fn().mockResolvedValue(1), publish } as unknown as ConstructorParameters<typeof SubscriptionHandler>[0],
+      { createMonitoredItems: vi.fn().mockResolvedValue(undefined) } as unknown as ConstructorParameters<typeof SubscriptionHandler>[1],
+    )
+
+    const onPublishError = vi.fn()
+    handler.onPublishError = onPublishError
+
+    await handler.subscribe([NodeId.newNumeric(0, 1)], vi.fn())
+    await new Promise<void>((resolve) => setTimeout(resolve, 0))
+
+    expect(onPublishError).toHaveBeenCalledOnce()
+  })
+
   it('does not fire onPublishError when publish succeeds', async () => {
     const keepAlive = {
       subscriptionId: 1,
@@ -94,6 +112,39 @@ describe('SubscriptionHandler – publish error callback', () => {
     expect(handler.hasEntries()).toBe(false)
     await handler.subscribe([NodeId.newNumeric(0, 1)], vi.fn())
     expect(handler.hasEntries()).toBe(true)
+  })
+
+  it('stop() prevents a late Publish rejection from triggering onPublishError', async () => {
+    let rejectPublish: (err: Error) => void
+    const publish = vi.fn()
+      .mockResolvedValueOnce({
+        subscriptionId: 1,
+        availableSequenceNumbers: [],
+        moreNotifications: false,
+        notificationMessage: { sequenceNumber: 1, publishTime: new Date(), notificationData: [] },
+      })
+      .mockImplementationOnce(() => new Promise((_resolve, reject) => { rejectPublish = reject }))
+
+    const handler = new SubscriptionHandler(
+      { createSubscription: vi.fn().mockResolvedValue(1), publish } as unknown as ConstructorParameters<typeof SubscriptionHandler>[0],
+      { createMonitoredItems: vi.fn().mockResolvedValue(undefined) } as unknown as ConstructorParameters<typeof SubscriptionHandler>[1],
+    )
+
+    const onPublishError = vi.fn()
+    handler.onPublishError = onPublishError
+
+    await handler.subscribe([NodeId.newNumeric(0, 1)], vi.fn())
+    // Let the first (successful) publish complete and the loop issue the second one.
+    await new Promise<void>((resolve) => setTimeout(resolve, 0))
+
+    // Simulate an explicit disconnect: the handler is stopped and detached
+    // before the channel teardown rejects the in-flight Publish.
+    handler.stop()
+    rejectPublish!(new Error('SecureChannel closed'))
+    await new Promise<void>((resolve) => setTimeout(resolve, 0))
+
+    expect(onPublishError).not.toHaveBeenCalled()
+    expect(handler.hasActiveSubscription()).toBe(false)
   })
 
   it('restartPublishLoop starts the loop again after a publish error', async () => {
@@ -325,5 +376,28 @@ describe('Client – initServices preserves subscription handler entries', () =>
     // Invoking the wired callback should call handlePublishLoopError.
     c.subscriptionHandler.onPublishError()
     expect(publishErrorSpy).toHaveBeenCalledOnce()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Client – disconnect() must not trigger a spurious auto-reconnect
+// ---------------------------------------------------------------------------
+
+describe('Client – disconnect stops the subscription handler', () => {
+  it('calls subscriptionHandler.stop() before tearing down the channel', async () => {
+    const client = makeClient()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const c = client as any
+
+    const stop = vi.fn()
+    c.subscriptionHandler = { stop }
+    c.session = undefined
+    c.sessionHandler = undefined
+    c.secureChannelFacade = { close: vi.fn() }
+    c.ws = { close: vi.fn() }
+
+    await client.disconnect()
+
+    expect(stop).toHaveBeenCalledOnce()
   })
 })

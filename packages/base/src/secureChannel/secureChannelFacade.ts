@@ -19,7 +19,7 @@ import { MsgSecurityHeaderSymmetric } from "./messages/msgSecurityHeaderSymmetri
 import { MsgSequenceHeader } from "./messages/msgSequenceHeader";
 import { MsgSymmetric } from "./messages/msgSymmetric";
 import { MsgTypeAbort, MsgTypeFinal, MsgTypeOpenFinal } from "./messages/msgType";
-import { PendingRequests } from "./pendingRequests";
+import { ChannelClosedError, PendingRequests } from "./pendingRequests";
 import { SecureChannelContext } from "./secureChannelContext";
 import { getLogger } from "../utils/logger/loggerProvider";
 import { MsgBase } from "./messages/msgBase";
@@ -55,6 +55,8 @@ export class SecureChannelFacade implements ISecureChannel {
   private readonly reader: ReadableStreamDefaultReader<MsgBase>;
   /** Timer handle for the scheduled token renewal; undefined when no renewal is pending. */
   private renewalTimer: ReturnType<typeof setTimeout> | undefined
+  /** Set once `close()` has been called, so a graceful shutdown isn't mistaken for a connection loss. */
+  private closed = false
 
   /**
    * Builds and sends an OpenSecureChannel request.
@@ -148,8 +150,13 @@ export class SecureChannelFacade implements ISecureChannel {
   /**
    * Cancels any pending token renewal timer and releases the stream writer.
    * Call this when the secure channel is no longer needed.
+   *
+   * A graceful close does not reject any request still awaiting a response —
+   * that's not a failure, so nothing is put on the pending queue for it. Any such
+   * request is simply abandoned; see the `closed` check in `routeFrames()`.
    */
   public close(): void {
+    this.closed = true
     if (this.renewalTimer !== undefined) {
       clearTimeout(this.renewalTimer)
       this.renewalTimer = undefined
@@ -194,6 +201,14 @@ export class SecureChannelFacade implements ISecureChannel {
       for (;;) {
         const { done, value } = await this.reader.read();
         if (done) {
+          // If we didn't ask for this (no prior close() call), the transport ended on
+          // its own — that still means the connection is gone, so any pending request
+          // (in particular a long-poll Publish) must be rejected instead of hanging
+          // forever. A `close()`-initiated shutdown is not a failure, so it doesn't
+          // reject anything here.
+          if (!this.closed) {
+            this.pending.failAll(new ChannelClosedError("SecureChannel connection closed"));
+          }
           break;
         }
 
@@ -224,6 +239,9 @@ export class SecureChannelFacade implements ISecureChannel {
         }
       }
     } catch (e) {
+      // A read error after an explicit close() is an expected side effect of tearing
+      // down the channel, not a failure worth reporting.
+      if (this.closed) return
       const error = e instanceof Error ? e : new Error(String(e));
       this.pending.failAll(error);
     }
