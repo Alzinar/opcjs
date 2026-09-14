@@ -12,11 +12,11 @@ Each facet has its own folder; each conformance unit has its own document.
 | [security-policy-none/](./security-policy-none/) | SecurityPolicy – None | Client & Server Core dependency | 7 / 7 ✅ | 1 / 1 ✅ |
 | [security-time-synchronization/](./security-time-synchronization/) | Security Time Synchronization | Client & Server Core dependency | 1 / 1 ✅ | 1 ✅ · 5 ❌ |
 | [user-token-anonymous-client/](./user-token-anonymous-client/) | User Token – Anonymous Client | Core 2022 Client Facet (dependency) | 1 / 1 ✅ | — |
-| [user-token-anonymous-server/](./user-token-anonymous-server/) | User Token – Anonymous Server | Core 2022 Server Facet (dependency) | 0 / 1 ❌ | — |
+| [user-token-anonymous-server/](./user-token-anonymous-server/) | User Token – Anonymous Server | Core 2022 Server Facet (dependency) | 1 / 1 ✅ | — |
 | [user-token-user-name-password-server/](./user-token-user-name-password-server/) | User Token – User Name Password Server | Core 2022 Server Facet (dependency) | 0 / 2 ❌ | 1 ❌ |
 | [minimum-ua-2025-client-facet/](./minimum-ua-2025-client-facet/) | Minimum UA 2025 Client Facet | Minimum UA Client 2025 Profile | 0 / 2 ❌ | 1 ❌ |
 | [base-client-behaviour-facet/](./base-client-behaviour-facet/) | Base Client Behaviour Facet | Standard UA Client Profiles | 2 ✅ · 5 ❌ | — |
-| [core-2022-server-facet/](./core-2022-server-facet/) | Core 2022 Server Facet | Nano/Standard UA Server Profiles | 0 / 15 ❌ | 22 ❌ |
+| [core-2022-server-facet/](./core-2022-server-facet/) | Core 2022 Server Facet | Nano/Standard UA Server Profiles | 4 ✅ · 4 ⚠️ · 7 ❌ | 22 ❌ |
 | [embedded-datachange-subscription-2022-server-facet/](./embedded-datachange-subscription-2022-server-facet/) | Embedded DataChange Subscription 2022 Server Facet | Micro/Standard UA Server Profiles | 1 ✅ · 4 ⚠️ · 5 ❌ | — |
 
 ### Conformance Unit Detail
@@ -126,17 +126,17 @@ Each facet has its own folder; each conformance unit has its own document.
 | Status | Conformance Unit |
 |--------|-----------------|
 | ❌ | [Address Space Atomicity](./core-2022-server-facet/address-space-atomicity.md) |
-| ❌ | [Address Space Base](./core-2022-server-facet/address-space-base.md) |
+| ⚠️ | [Address Space Base](./core-2022-server-facet/address-space-base.md) |
 | ❌ | [Address Space Full Array Only](./core-2022-server-facet/address-space-full-array-only.md) |
-| ❌ | [Attribute Read](./core-2022-server-facet/attribute-read.md) |
-| ❌ | [Base Info Core Structure 2](./core-2022-server-facet/base-info-core-structure-2.md) |
+| ⚠️ | [Attribute Read](./core-2022-server-facet/attribute-read.md) |
+| ⚠️ | [Base Info Core Structure 2](./core-2022-server-facet/base-info-core-structure-2.md) |
 | ❌ | [Base Info Server Capabilities 2](./core-2022-server-facet/base-info-server-capabilities-2.md) |
-| ❌ | [Discovery Find Servers Self](./core-2022-server-facet/discovery-find-servers-self.md) |
-| ❌ | [Discovery Get Endpoints](./core-2022-server-facet/discovery-get-endpoints.md) |
+| ✅ | [Discovery Find Servers Self](./core-2022-server-facet/discovery-find-servers-self.md) |
+| ✅ | [Discovery Get Endpoints](./core-2022-server-facet/discovery-get-endpoints.md) |
 | ❌ | [Documentation – Core Capacities](./core-2022-server-facet/documentation-core-capacities.md) |
-| ❌ | [SecurityPolicy Support](./core-2022-server-facet/security-policy-support.md) |
-| ❌ | [Session Base](./core-2022-server-facet/session-base.md) |
-| ❌ | [Session General Service Behaviour](./core-2022-server-facet/session-general-service-behaviour.md) |
+| ✅ | [SecurityPolicy Support](./core-2022-server-facet/security-policy-support.md) |
+| ✅ | [Session Base](./core-2022-server-facet/session-base.md) |
+| ⚠️ | [Session General Service Behaviour](./core-2022-server-facet/session-general-service-behaviour.md) |
 | ❌ | [View Basic 2](./core-2022-server-facet/view-basic-2.md) |
 | ❌ | [View RegisterNodes](./core-2022-server-facet/view-register-nodes.md) |
 | ❌ | [View TranslateBrowsePath](./core-2022-server-facet/view-translate-browse-path.md) |
@@ -172,7 +172,7 @@ Each facet has its own folder; each conformance unit has its own document.
 
 | Status | Conformance Unit |
 |--------|-----------------|
-| ❌ | [Security User Anonymous Server](./user-token-anonymous-server/security-user-anonymous-server.md) |
+| ✅ | [Security User Anonymous Server](./user-token-anonymous-server/security-user-anonymous-server.md) |
 
 #### User Token – User Name Password Server — Required
 

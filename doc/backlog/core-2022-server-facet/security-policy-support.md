@@ -2,7 +2,7 @@
 
 **Facet**: Core 2022 Server Facet  
 **Type**: Required  
-**Status**: ❌ Not Implemented  
+**Status**: ✅ Implemented  
 
 ## Description
 
@@ -27,3 +27,11 @@ The server must support at least one Security Policy. Support of `SecurityPolicy
 | OPC 10000-2 | §4 | Security Model |
 | OPC 10000-6 | §7 | Security Policies |
 | profiles.opcfoundation.org | [CU 2600](https://profiles.opcfoundation.org/conformanceunit/2600) | SecurityPolicy Support |
+
+## Implementation
+
+**Files**:
+- `packages/server/src/services/constants.ts` — `SECURITY_POLICY_NONE` URI
+- `packages/server/src/services/discoveryService.ts` — advertises `SecurityPolicy#None` in every `EndpointDescription`
+
+Only `SecurityPolicy#None` is supported — this is explicitly recommended as sufficient by the spec, but no encrypted/signed policy (`Basic256Sha256`, ECC, etc.) is implemented yet.

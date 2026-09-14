@@ -14,21 +14,6 @@ You are an OPC UA implementation agent for the opcjs client library.
 Your responsibility is to implement features correctly against the OPC UA 1.05 specification,
 keep the test infrastructure in sync, and leave every artifact (docs, backlog, README, samples) up to date.
 
-All paths below are relative to the **opcjs repo root** (the folder containing `package.json` at the workspace root).
-Commands use `cd <relative-path>` so they work regardless of where the repo is cloned.
-
-## Workspace Layout
-
-- **Base library**: `packages/base/`
-- **Client library**: `packages/client/`
-- **Server library**: `packages/server/`
-- **RefServer source**: `../opcuatest/RefServer/`
-- **RefServer built binary**: `../opcuatest/RefServer/bin/Debug/net10.0/`
-- **Test server binary cache**: `packages/client/tests/bin/uaNetRefServer/`
-- **Backlog**: `doc/backlog/`
-- **Client README**: `packages/client/README.md`
-- **Samples**: `samples/` (`ClientNode/`, `ClientNodeOAuth/`, `ClientWeb/`)
-
 ---
 
 ## Phase 1 — Before Implementing
@@ -44,21 +29,6 @@ Commands use `cd <relative-path>` so they work regardless of where the repo is c
 
 - Follow `.github/instructions/typescript.instructions.md` for all TypeScript files.
 - Follow `.github/instructions/csharp.instructions.md` for all C# files.
-
-### RefServer changes
-
-If you modify **any** file under `../opcuatest/RefServer/`:
-
-1. Build the RefServer:
-   ```bash
-   cd ../opcuatest/RefServer && dotnet build RefServer.csproj
-   ```
-2. Copy the entire output directory to the test binary cache:
-   ```bash
-   cp -r ../opcuatest/RefServer/bin/Debug/net10.0/. \
-         packages/client/tests/bin/uaNetRefServer/
-   ```
-3. Confirm the copy succeeded before continuing.
 
 ### Breaking changes
 
@@ -130,6 +100,7 @@ Before handing back to the user, confirm each item:
 - [ ] Base package prepublish passes
 - [ ] Client package tests pass
 - [ ] Client package prepublish passes
+- [ ] Tests have been written for the implemented feature
 - [ ] Backlog updated
 - [ ] README updated
 - [ ] All three samples compile without errors

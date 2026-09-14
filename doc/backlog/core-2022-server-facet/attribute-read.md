@@ -2,7 +2,7 @@
 
 **Facet**: Core 2022 Server Facet  
 **Type**: Required  
-**Status**: ❌ Not Implemented  
+**Status**: ⚠️ Partially Implemented  
 
 ## Description
 
@@ -24,3 +24,14 @@ The server must support the `Read` Service to read one or more Attributes of one
 | OPC 10000-4 | §5.10.2 | Read Service |
 | OPC 10000-4 | §7.22 | ReadValueId |
 | profiles.opcfoundation.org | [CU 3072](https://profiles.opcfoundation.org/conformanceunit/3072) | Attribute Read |
+
+## Implementation
+
+**Files**:
+- `packages/server/src/services/attributeService.ts` — `read()` handles `ReadRequest`, applies `timestampsToReturn` (`Source`/`Server`/`Both`/`Neither`)
+- `packages/server/src/addressSpace/node.ts` — per-node attribute map backing the reads
+
+**Not yet implemented**:
+- `IndexRange` support (array-slice reads) — always returns the full value
+- `maxAge` — explicitly ignored, always returns a live value
+- `Bad_IndexRangeNoData` is never returned since `IndexRange` is not evaluated

@@ -2,7 +2,7 @@
 
 **Facet**: User Token – Anonymous Server Facet  
 **Type**: Required  
-**Status**: ❌ Not Implemented  
+**Status**: ✅ Implemented  
 
 ## Description
 
@@ -23,3 +23,12 @@ The server must support the `AnonymousIdentityToken` as a valid user identity to
 | OPC 10000-4 | §5.7.3 | ActivateSession Service |
 | OPC 10000-4 | §7.36.1 | AnonymousIdentityToken |
 | profiles.opcfoundation.org | [CU 3928](https://profiles.opcfoundation.org/conformanceunit/3928) | Security User Anonymous Server |
+
+## Implementation
+
+**Files**:
+- `packages/server/src/services/discoveryService.ts` — advertises an `anonymous` `UserTokenPolicy` (`tokenType = Anonymous`) in every `EndpointDescription`
+- `packages/server/src/security/anonymousAuthenticator.ts` — `validateAnonymousToken()` rejects any non-`AnonymousIdentityToken`
+- `packages/server/src/sessions/sessionManager.ts` — `activateSession()` validates the token during `ActivateSession`
+
+**Not yet implemented**: no configuration flag to disable anonymous access (it is always accepted).

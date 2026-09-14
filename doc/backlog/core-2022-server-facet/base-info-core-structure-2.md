@@ -2,7 +2,7 @@
 
 **Facet**: Core 2022 Server Facet  
 **Type**: Required  
-**Status**: ❌ Not Implemented  
+**Status**: ⚠️ Partially Implemented  
 
 ## Description
 
@@ -26,3 +26,13 @@ The server must expose the base entry points and server object in the AddressSpa
 | OPC 10000-5 | §8.2 | Server Object |
 | OPC 10000-3 | §8.2.4 | AddressSpace entry points |
 | profiles.opcfoundation.org | [CU 3184](https://profiles.opcfoundation.org/conformanceunit/3184) | Base Info Core Structure 2 |
+
+## Implementation
+
+**Files**:
+- `packages/server/src/addressSpace/addressSpace.ts` — `populateServerNodes()` pre-populates `Server` (i=2253), `ServerArray` (i=2254), `NamespaceArray` (i=2255), and a placeholder `ServerStatus` (i=2256) object.
+
+**Not yet implemented**:
+- `Root` (i=84) and `Objects` (i=85) entry-point nodes do not exist.
+- `ServerStatus` is a bare `Object` node, not the full `ServerStatusDataType` structure (`BuildInfo`, `StartTime`, `CurrentTime`, `State`, `SecondsTillShutdown`, `ShutdownReason`).
+- `ServiceLevel`, `Auditing`, `VendorServerInfo`, and `ServerRedundancy` are missing.

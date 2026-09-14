@@ -13,4 +13,4 @@ Servers must allow administrators to disable or enable this token type — it sh
 
 | Status | Document | Conformance Unit |
 |--------|----------|-----------------|
-| ❌ | [security-user-anonymous-server.md](./security-user-anonymous-server.md) | Security User Anonymous Server |
+| ✅ | [security-user-anonymous-server.md](./security-user-anonymous-server.md) | Security User Anonymous Server |

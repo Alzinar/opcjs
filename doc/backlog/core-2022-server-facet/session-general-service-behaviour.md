@@ -2,7 +2,7 @@
 
 **Facet**: Core 2022 Server Facet  
 **Type**: Required  
-**Status**: ❌ Not Implemented  
+**Status**: ⚠️ Partially Implemented  
 
 ## Description
 
@@ -21,3 +21,12 @@ The server must implement basic service behaviour for all services within a sess
 | OPC 10000-4 | §7.29 | ResponseHeader |
 | OPC 10000-4 | §5.7 | Session Service Set |
 | profiles.opcfoundation.org | [CU 3985](https://profiles.opcfoundation.org/conformanceunit/3985) | Session General Service Behaviour |
+
+## Implementation
+
+**Files**:
+- `packages/server/src/services/serviceDispatcher.ts` — validates `authenticationToken` before dispatching, returns `ServiceFault` with the correct status code on failure
+- `packages/server/src/services/responseHeader.ts` — `makeResponseHeader()` echoes `requestHandle` on every response
+
+**Not yet implemented**:
+- `timeoutHint` from the `RequestHeader` is not read or enforced anywhere — requests are processed to completion regardless of the client's hint.

@@ -14,21 +14,6 @@ You are anfixer agent for the opcjs library.
 Your responsibility is to fix features correctly against the OPC UA 1.05 specification,
 keep the test infrastructure in sync, and leave every artifact (docs, backlog, README, samples) up to date.
 
-All paths below are relative to the **opcjs repo root** (the folder containing `package.json` at the workspace root).
-Commands use `cd <relative-path>` so they work regardless of where the repo is cloned.
-
-## Workspace Layout
-
-- **Base library**: `packages/base/`
-- **Client library**: `packages/client/`
-- **Server library**: `packages/server/`
-- **RefServer source**: `../opcuatest/RefServer/`
-- **RefServer built binary**: `../opcuatest/RefServer/bin/Debug/net10.0/`
-- **Test server binary cache**: `packages/client/tests/bin/uaNetRefServer/`
-- **Backlog**: `doc/backlog/`
-- **Client README**: `packages/client/README.md`
-- **Samples**: `samples/` (`ClientNode/`, `ClientNodeOAuth/`, `ClientWeb/`)
-
 ---
 
 ## Phase 1 — Before Implementing
@@ -43,32 +28,7 @@ Commands use `cd <relative-path>` so they work regardless of where the repo is c
 
 ### General rules
 
-- Follow `.github/instructions/typescript.instructions.md` for all TypeScript files.
-- Follow `.github/instructions/csharp.instructions.md` for all C# files.
-
-### RefServer changes
-
-If you modify **any** file under `../opcuatest/RefServer/`:
-
-1. Build the RefServer:
-   ```bash
-   cd ../opcuatest/RefServer && dotnet build RefServer.csproj
-   ```
-2. Copy the entire output directory to the test binary cache:
-   ```bash
-   cp -r ../opcuatest/RefServer/bin/Debug/net10.0/. \
-         packages/client/tests/bin/uaNetRefServer/
-   ```
-3. Confirm the copy succeeded before continuing.
-
-### Breaking changes
-
-Before finishing any edit to a `.ts` file in `packages/`:
-
-- Identify every **exported** class, interface, type alias, or function whose public API changes (added required parameter, removed member, renamed symbol, changed type, etc.).
-- For each one, state explicitly:
-  > ⚠️ **Breaking change** – `<Symbol>`: \<what changed and why it is incompatible\>.
-- If no exported APIs change, state: "No breaking changes."
+- Use an implementer agent. See 'Opc.JsImplementer.agent.md'.
 
 ---
 

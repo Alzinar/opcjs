@@ -2,7 +2,7 @@
 
 **Facet**: Core 2022 Server Facet  
 **Type**: Required  
-**Status**: ❌ Not Implemented  
+**Status**: ⚠️ Partially Implemented  
 
 ## Description
 
@@ -30,3 +30,14 @@ The server must support all NodeClasses with their Attributes and References. Th
 | OPC 10000-3 | §5 | AddressSpace Model |
 | OPC 10000-3 | §8 | NodeClasses and Attributes |
 | profiles.opcfoundation.org | [CU 3554](https://profiles.opcfoundation.org/conformanceunit/3554) | Address Space Base |
+
+## Implementation
+
+**Files**:
+- `packages/server/src/addressSpace/node.ts` — `OpcUaNode`/`ObjectNode`/`VariableNode` expose the mandatory Attributes (`NodeId`, `NodeClass`, `BrowseName`, `DisplayName`, `WriteMask`, `UserWriteMask`, plus Variable-specific Attributes)
+- `packages/server/src/addressSpace/addressSpace.ts` — in-memory `Map<string, Node>` keyed by `NodeId`
+
+**Not yet implemented**:
+- Only `Object` and `Variable` NodeClasses exist; `ObjectType`, `VariableType`, `ReferenceType`, `DataType`, `Method`, and `View` are not modelled.
+- Nodes have no `References` (forward or inverse) — there is no `HasComponent`/`HasProperty`/`HasTypeDefinition`/`HasSubtype` graph, which also blocks the View services (Browse, TranslateBrowsePath).
+- `Description` Attribute is not populated.

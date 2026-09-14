@@ -2,7 +2,7 @@
 
 **Facet**: Core 2022 Server Facet  
 **Type**: Required  
-**Status**: ❌ Not Implemented  
+**Status**: ✅ Implemented  
 
 ## Description
 
@@ -25,3 +25,8 @@ The server must support the `FindServers` Service, but only for reporting itself
 |-----------|---------|-------|
 | OPC 10000-4 | §5.4.2 | FindServers Service |
 | profiles.opcfoundation.org | [CU 2352](https://profiles.opcfoundation.org/conformanceunit/2352) | Discovery Find Servers Self |
+
+## Implementation
+
+**Files**:
+- `packages/server/src/services/discoveryService.ts` — `findServers()` returns the server's own `ApplicationDescription` (`applicationUri`, `productUri`, `applicationName`, `applicationType = Server`, `discoveryUrls`).

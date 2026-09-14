@@ -34,17 +34,17 @@ A server claiming conformance to this facet must also conform to all **mandatory
 | Status | Document | Conformance Unit |
 |--------|----------|-----------------|
 | ❌ | [address-space-atomicity.md](./address-space-atomicity.md) | Address Space Atomicity |
-| ❌ | [address-space-base.md](./address-space-base.md) | Address Space Base |
+| ⚠️ | [address-space-base.md](./address-space-base.md) | Address Space Base |
 | ❌ | [address-space-full-array-only.md](./address-space-full-array-only.md) | Address Space Full Array Only |
-| ❌ | [attribute-read.md](./attribute-read.md) | Attribute Read |
-| ❌ | [base-info-core-structure-2.md](./base-info-core-structure-2.md) | Base Info Core Structure 2 |
+| ⚠️ | [attribute-read.md](./attribute-read.md) | Attribute Read |
+| ⚠️ | [base-info-core-structure-2.md](./base-info-core-structure-2.md) | Base Info Core Structure 2 |
 | ❌ | [base-info-server-capabilities-2.md](./base-info-server-capabilities-2.md) | Base Info Server Capabilities 2 |
-| ❌ | [discovery-find-servers-self.md](./discovery-find-servers-self.md) | Discovery Find Servers Self |
-| ❌ | [discovery-get-endpoints.md](./discovery-get-endpoints.md) | Discovery Get Endpoints |
+| ✅ | [discovery-find-servers-self.md](./discovery-find-servers-self.md) | Discovery Find Servers Self |
+| ✅ | [discovery-get-endpoints.md](./discovery-get-endpoints.md) | Discovery Get Endpoints |
 | ❌ | [documentation-core-capacities.md](./documentation-core-capacities.md) | Documentation – Core Capacities |
-| ❌ | [security-policy-support.md](./security-policy-support.md) | SecurityPolicy Support |
-| ❌ | [session-base.md](./session-base.md) | Session Base |
-| ❌ | [session-general-service-behaviour.md](./session-general-service-behaviour.md) | Session General Service Behaviour |
+| ✅ | [security-policy-support.md](./security-policy-support.md) | SecurityPolicy Support |
+| ✅ | [session-base.md](./session-base.md) | Session Base |
+| ⚠️ | [session-general-service-behaviour.md](./session-general-service-behaviour.md) | Session General Service Behaviour |
 | ❌ | [view-basic-2.md](./view-basic-2.md) | View Basic 2 |
 | ❌ | [view-register-nodes.md](./view-register-nodes.md) | View RegisterNodes |
 | ❌ | [view-translate-browse-path.md](./view-translate-browse-path.md) | View TranslateBrowsePath |
@@ -75,3 +75,22 @@ A server claiming conformance to this facet must also conform to all **mandatory
 | ❌ | [security-administration.md](./security-administration.md) | Security Administration |
 | ❌ | [security-role-server-authorization.md](./security-role-server-authorization.md) | Security Role Server Authorization |
 | ❌ | [session-change-user.md](./session-change-user.md) | Session Change User |
+
+### Summary
+
+| Total | Implemented | Partial | Missing |
+|-------|-------------|---------|---------|
+| Required: 15 | 4 | 4 | 7 |
+| Optional: 22 | 0 | 0 | 22 |
+
+## Implementation Notes
+
+- Implementation lives under `packages/server/src/`:
+  - `services/discoveryService.ts` — `GetEndpoints` / `FindServers` (SecurityPolicy None, anonymous token policy, single WS endpoint).
+  - `services/sessionService.ts` + `sessions/sessionManager.ts` — `CreateSession` / `ActivateSession` / `CloseSession`, timeout scheduling, channel binding.
+  - `services/serviceDispatcher.ts` — enforces Session General Service Behaviour (authentication-token checks, `requestHandle` echo) but does not yet honour `timeoutHint`.
+  - `services/attributeService.ts` — `Read` with `timestampsToReturn`, but no `IndexRange` or `maxAge` support.
+  - `addressSpace/addressSpace.ts` + `addressSpace/node.ts` — minimal in-memory address space with `Object`/`Variable` NodeClasses and the four standard `Server` nodes; no `References`, no other NodeClasses, no `ServerCapabilities` object, no `Root`/`Objects` entry points.
+- The View Service Set (`Browse`, `BrowseNext`, `TranslateBrowsePathsToNodeIds`, `RegisterNodes`/`UnregisterNodes`) is entirely unimplemented — `serviceDispatcher.ts` has no handlers for these requests.
+- No `Write` service exists, which blocks all Attribute-Write optional CUs.
+- Only anonymous authentication is implemented (see [../user-token-anonymous-server/](../user-token-anonymous-server/)); there is no username/password support (see [../user-token-user-name-password-server/](../user-token-user-name-password-server/)).

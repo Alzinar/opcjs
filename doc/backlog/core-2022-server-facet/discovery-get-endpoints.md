@@ -2,7 +2,7 @@
 
 **Facet**: Core 2022 Server Facet  
 **Type**: Required  
-**Status**: ❌ Not Implemented  
+**Status**: ✅ Implemented  
 
 ## Description
 
@@ -28,3 +28,10 @@ The server must support the `GetEndpoints` Service to return all available endpo
 | OPC 10000-4 | §5.4.4 | GetEndpoints Service |
 | OPC 10000-4 | §7.10 | EndpointDescription |
 | profiles.opcfoundation.org | [CU 2328](https://profiles.opcfoundation.org/conformanceunit/2328) | Discovery Get Endpoints |
+
+## Implementation
+
+**Files**:
+- `packages/server/src/services/discoveryService.ts` — `getEndpoints()` builds a single `EndpointDescription` (SecurityMode `None`, SecurityPolicy `#None`, WS transport profile, anonymous `UserTokenPolicy`, `securityLevel = 0`).
+
+Only one endpoint is returned (no filtering by `profileUris`, no additional security policies), which is sufficient for this CU since the Server only claims SecurityPolicy None.

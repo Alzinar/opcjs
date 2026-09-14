@@ -2,7 +2,7 @@
 
 **Facet**: Core 2022 Server Facet  
 **Type**: Required  
-**Status**: ❌ Not Implemented  
+**Status**: ✅ Implemented  
 
 ## Description
 
@@ -36,3 +36,12 @@ The server must support the Session Service Set: `CreateSession`, `ActivateSessi
 | OPC 10000-4 | §5.7.3 | ActivateSession |
 | OPC 10000-4 | §5.7.4 | CloseSession |
 | profiles.opcfoundation.org | [CU 3175](https://profiles.opcfoundation.org/conformanceunit/3175) | Session Base |
+
+## Implementation
+
+**Files**:
+- `packages/server/src/services/sessionService.ts` — `createSession()`, `activateSession()`, `closeSession()`
+- `packages/server/src/sessions/sessionManager.ts` — session store, `authenticationToken` generation, timeout scheduling, channel binding
+- `packages/server/src/sessions/session.ts` — per-session state
+
+`CloseSession` with `deleteSubscriptions = true` disposes every `Subscription` owned by the session (see `SubscriptionManager`).
