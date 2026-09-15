@@ -36,6 +36,7 @@ import { SessionService } from '../src/services/sessionService.js'
 import { SubscriptionService } from '../src/services/subscriptionService.js'
 import { SessionManager } from '../src/sessions/sessionManager.js'
 import { SubscriptionManager } from '../src/subscription/subscriptionManager.js'
+import { ViewService } from '../src/services/viewService.js'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -51,6 +52,7 @@ function makeStack() {
   const sessionSvc = new SessionService(sessionManager, cfg, ENDPOINT_URL, subscriptionManager)
   const attributeSvc = new AttributeService(addressSpace)
   const discoverySvc = new DiscoveryService(cfg, ENDPOINT_URL)
+  const viewSvc = new ViewService(addressSpace)
   const dispatcher = new ServiceDispatcher(
     sessionManager,
     sessionSvc,
@@ -58,6 +60,7 @@ function makeStack() {
     discoverySvc,
     subscriptionSvc,
     monitoredItemSvc,
+    viewSvc,
   )
   return {
     cfg,
@@ -68,6 +71,7 @@ function makeStack() {
     subscriptionManager,
     subscriptionSvc,
     monitoredItemSvc,
+    viewSvc,
     dispatcher,
   }
 }
@@ -279,6 +283,73 @@ describe('ServiceDispatcher session validation', () => {
     expect((res as ServiceFault).responseHeader.serviceResult).toBe(StatusCode.BadSessionIdInvalid)
   })
 
+  it('a request older than its timeoutHint returns ServiceFault Bad_Timeout (Session General Service Behaviour)', async () => {
+    const { dispatcher } = makeStack()
+
+    const csReq = new CreateSessionRequest()
+    csReq.requestHeader = makeRequestHeader()
+    csReq.sessionName = 'test'
+    csReq.requestedSessionTimeout = 60_000
+    csReq.maxResponseMessageSize = 0
+    csReq.clientNonce = new Uint8Array(32)
+    const csRes = (await dispatcher.dispatch(csReq, 1)) as CreateSessionResponse
+    const authToken = csRes.authenticationToken
+
+    const asReq = new ActivateSessionRequest()
+    asReq.requestHeader = makeRequestHeader(authToken)
+    asReq.userIdentityToken = makeAnonToken()
+    asReq.clientSignature = new SignatureData()
+    asReq.clientSoftwareCertificates = []
+    asReq.localeIds = []
+    asReq.userTokenSignature = new SignatureData()
+    await dispatcher.dispatch(asReq, 1)
+
+    const rdReq = new ReadRequest()
+    rdReq.requestHeader = makeRequestHeader(authToken)
+    rdReq.requestHeader.timestamp = new Date(Date.now() - 10_000)
+    rdReq.requestHeader.timeoutHint = 1_000
+    rdReq.maxAge = 0
+    rdReq.timestampsToReturn = 0
+    rdReq.nodesToRead = []
+
+    const res = await dispatcher.dispatch(rdReq, 1)
+    expect(res).toBeInstanceOf(ServiceFault)
+    expect((res as ServiceFault).responseHeader.serviceResult).toBe(StatusCode.BadTimeout)
+  })
+
+  it('a request within its timeoutHint is processed normally', async () => {
+    const { dispatcher } = makeStack()
+
+    const csReq = new CreateSessionRequest()
+    csReq.requestHeader = makeRequestHeader()
+    csReq.sessionName = 'test'
+    csReq.requestedSessionTimeout = 60_000
+    csReq.maxResponseMessageSize = 0
+    csReq.clientNonce = new Uint8Array(32)
+    const csRes = (await dispatcher.dispatch(csReq, 1)) as CreateSessionResponse
+    const authToken = csRes.authenticationToken
+
+    const asReq = new ActivateSessionRequest()
+    asReq.requestHeader = makeRequestHeader(authToken)
+    asReq.userIdentityToken = makeAnonToken()
+    asReq.clientSignature = new SignatureData()
+    asReq.clientSoftwareCertificates = []
+    asReq.localeIds = []
+    asReq.userTokenSignature = new SignatureData()
+    await dispatcher.dispatch(asReq, 1)
+
+    const rdReq = new ReadRequest()
+    rdReq.requestHeader = makeRequestHeader(authToken)
+    rdReq.requestHeader.timestamp = new Date()
+    rdReq.requestHeader.timeoutHint = 60_000
+    rdReq.maxAge = 0
+    rdReq.timestampsToReturn = 0
+    rdReq.nodesToRead = []
+
+    const res = await dispatcher.dispatch(rdReq, 1)
+    expect(res).toBeInstanceOf(ReadResponse)
+  })
+
   it('unknown request type returns ServiceFault BadServiceUnsupported', async () => {
     const { dispatcher } = makeStack()
 
@@ -293,6 +364,7 @@ describe('ServiceDispatcher session validation', () => {
 
     const asReq = new ActivateSessionRequest()
     asReq.requestHeader = makeRequestHeader(csRes.authenticationToken)
+
     asReq.userIdentityToken = makeAnonToken()
     asReq.clientSignature = new SignatureData()
     asReq.clientSoftwareCertificates = []
@@ -378,6 +450,8 @@ describe('AttributeService', () => {
       isActivated: true,
       createdAt: new Date(),
       lastActivityAt: new Date(),
+      continuationPoints: new Map(),
+      registeredNodes: new Set<string>(),
     }
 
     const item = new ReadValueId()
@@ -414,6 +488,8 @@ describe('AttributeService', () => {
       isActivated: true,
       createdAt: new Date(),
       lastActivityAt: new Date(),
+      continuationPoints: new Map(),
+      registeredNodes: new Set<string>(),
     }
 
     const item = new ReadValueId()
@@ -448,6 +524,8 @@ describe('AttributeService', () => {
       isActivated: true,
       createdAt: new Date(),
       lastActivityAt: new Date(),
+      continuationPoints: new Map(),
+      registeredNodes: new Set<string>(),
     }
 
     const item = new ReadValueId()
@@ -480,6 +558,8 @@ function makeTestSession() {
     isActivated: true,
     createdAt: new Date(),
     lastActivityAt: new Date(),
+    continuationPoints: new Map(),
+    registeredNodes: new Set<string>(),
   }
 }
 

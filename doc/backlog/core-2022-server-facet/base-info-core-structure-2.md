@@ -2,7 +2,7 @@
 
 **Facet**: Core 2022 Server Facet  
 **Type**: Required  
-**Status**: ⚠️ Partially Implemented  
+**Status**: ✅ Implemented  
 
 ## Description
 
@@ -30,9 +30,6 @@ The server must expose the base entry points and server object in the AddressSpa
 ## Implementation
 
 **Files**:
-- `packages/server/src/addressSpace/addressSpace.ts` — `populateServerNodes()` pre-populates `Server` (i=2253), `ServerArray` (i=2254), `NamespaceArray` (i=2255), and a placeholder `ServerStatus` (i=2256) object.
+- `packages/server/src/addressSpace/addressSpace.ts` — `populateCoreStructure()` creates `Root` (i=84), `Objects` (i=85), `Types` (i=86), `Views` (i=87) and their `ObjectTypes`/`VariableTypes`/`DataTypes`/`ReferenceTypes` sub-folders (all `Organizes`-linked and typed `FolderType`). `populateServerObject()` creates the `Server` Object (i=2253) with `ServerArray` (i=2254), `NamespaceArray` (i=2255), a full `ServerStatus` (i=2256, `ServerStatusDataType` with live `BuildInfo`, `StartTime`, `CurrentTime`, `State`), `ServiceLevel` (i=2267), `Auditing` (i=2994), `VendorServerInfo` (i=2295), and `ServerRedundancy` (i=2296).
 
-**Not yet implemented**:
-- `Root` (i=84) and `Objects` (i=85) entry-point nodes do not exist.
-- `ServerStatus` is a bare `Object` node, not the full `ServerStatusDataType` structure (`BuildInfo`, `StartTime`, `CurrentTime`, `State`, `SecondsTillShutdown`, `ShutdownReason`).
-- `ServiceLevel`, `Auditing`, `VendorServerInfo`, and `ServerRedundancy` are missing.
+All previously-missing pieces (`Root`/`Objects` entry points, the full `ServerStatusDataType` structure, `ServiceLevel`, `Auditing`, `VendorServerInfo`, `ServerRedundancy`) are now implemented.

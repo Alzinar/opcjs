@@ -2,7 +2,7 @@
 
 **Facet**: Core 2022 Server Facet  
 **Type**: Required  
-**Status**: ⚠️ Partially Implemented  
+**Status**: ✅ Implemented  
 
 ## Description
 
@@ -34,10 +34,6 @@ The server must support all NodeClasses with their Attributes and References. Th
 ## Implementation
 
 **Files**:
-- `packages/server/src/addressSpace/node.ts` — `OpcUaNode`/`ObjectNode`/`VariableNode` expose the mandatory Attributes (`NodeId`, `NodeClass`, `BrowseName`, `DisplayName`, `WriteMask`, `UserWriteMask`, plus Variable-specific Attributes)
-- `packages/server/src/addressSpace/addressSpace.ts` — in-memory `Map<string, Node>` keyed by `NodeId`
-
-**Not yet implemented**:
-- Only `Object` and `Variable` NodeClasses exist; `ObjectType`, `VariableType`, `ReferenceType`, `DataType`, `Method`, and `View` are not modelled.
-- Nodes have no `References` (forward or inverse) — there is no `HasComponent`/`HasProperty`/`HasTypeDefinition`/`HasSubtype` graph, which also blocks the View services (Browse, TranslateBrowsePath).
-- `Description` Attribute is not populated.
+- `packages/server/src/addressSpace/node.ts` — `OpcUaNode` base class plus `ObjectNode`, `VariableNode`, `ObjectTypeNode`, `VariableTypeNode`, `ReferenceTypeNode`, `DataTypeNode`, `MethodNode`, and `ViewNode` cover all eight NodeClasses, each exposing the mandatory Attributes (`NodeId`, `NodeClass`, `BrowseName`, `DisplayName`, `Description`, `WriteMask`, `UserWriteMask`, plus NodeClass-specific Attributes such as `IsAbstract`, `Executable`, `ContainsNoLoops`).
+- `packages/server/src/addressSpace/addressSpace.ts` — in-memory `Map<string, OpcUaNode>` keyed by `NodeId`; `addReference()`/`getNode().getReferences()` maintain both forward and inverse `ReferenceRecord`s. `populateReferenceTypes()` builds the built-in ReferenceType hierarchy (`References`, `HierarchicalReferences`, `NonHierarchicalReferences`, `HasChild`, `Organizes`, `Aggregates`, `HasComponent`, `HasProperty`, `HasTypeDefinition`, `HasSubtype`, `HasEncoding`, `HasDescription`, `HasModellingRule`, `HasEventSource`, `HasNotifier`, `GeneratesEvent`, `HasOrderedComponent`) with the correct `HasSubtype` graph. `populateTypeSystem()` and `populateCoreStructure()` wire up `ObjectType`/`VariableType`/`DataType` subtype graphs and the `Root`/`Objects`/`Types`/`Views` entry points, including at least one representative `Method` and `View` node.
+- `packages/server/src/addressSpace/wellKnownIds.ts` — well-known namespace-0 NodeIds for ReferenceTypes, Objects, ObjectTypes, VariableTypes, and DataTypes.

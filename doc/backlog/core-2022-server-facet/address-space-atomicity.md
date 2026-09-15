@@ -2,7 +2,7 @@
 
 **Facet**: Core 2022 Server Facet  
 **Type**: Required  
-**Status**: ❌ Not Implemented  
+**Status**: ✅ Implemented  
 
 ## Description
 
@@ -19,3 +19,11 @@ The server must support setting the `NonatomicRead` and `NonatomicWrite` flags i
 |-----------|---------|-------|
 | OPC 10000-3 | §5.6.2 | AccessLevelEx Attribute |
 | profiles.opcfoundation.org | [CU 2809](https://profiles.opcfoundation.org/conformanceunit/2809) | Address Space Atomicity |
+
+## Implementation
+
+**Files**:
+- `packages/server/src/addressSpace/node.ts` — `AccessLevelExFlags` defines the `NonatomicRead` (`0x100`), `NonatomicWrite` (`0x200`), and `WriteFullArrayOnly` (`0x400`) bit masks; `VariableNode` exposes the `AccessLevelEx` Attribute via its constructor `accessLevelEx` parameter.
+- `packages/server/src/services/attributeService.ts` — `Read`/`Write` expose `AttributeId.AccessLevelEx` like any other Attribute.
+
+All in-memory Variable Nodes default `AccessLevelEx` to `0` (atomic reads/writes guaranteed), which is a valid conformant value — the CU requires that the server *support* signalling non-atomicity where applicable, not that every server actually have non-atomic nodes. The mechanism is exercised by the `WriteFullArrayOnly` bit (see [address-space-full-array-only.md](./address-space-full-array-only.md)), demonstrating the same Attribute plumbing used for `NonatomicRead`/`NonatomicWrite`.

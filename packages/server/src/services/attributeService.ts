@@ -7,10 +7,13 @@ import {
   StatusCode,
   TimestampsToReturnEnum,
   Variant,
+  WriteRequest,
+  WriteResponse,
   getLogger,
 } from 'opcjs-base'
-import type { ILogger, NumericRangeDimension, VariantArrayValue } from 'opcjs-base'
+import type { ILogger, NumericRangeDimension, VariantArrayValue, WriteValue } from 'opcjs-base'
 
+import { AccessLevelExFlags, AccessLevelFlags, AttributeId } from '../addressSpace/node.js'
 import type { IAddressSpace } from '../addressSpace/iAddressSpace.js'
 import type { Session } from '../sessions/session.js'
 import { makeResponseHeader } from './responseHeader.js'
@@ -84,6 +87,143 @@ export class AttributeService {
     response.diagnosticInfos = new Array<DiagnosticInfo>(results.length).fill(new DiagnosticInfo())
     return response
   }
+
+  /**
+   * Handles `WriteRequest` → `WriteResponse` (OPC UA Part 4 §5.10.4).
+   *
+   * Only the `Value` attribute may be written (Attribute Write Values /
+   * Attribute Write Index / Attribute Write StatusCode & Timestamp
+   * conformance units); writing any other attribute returns
+   * `Bad_NotWritable`.
+   *
+   * @param request - Decoded `WriteRequest` from the client
+   * @param session - Validated session (provided for audit / future use)
+   */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  write(request: WriteRequest, session: Session): WriteResponse {
+    const requestHandle = request.requestHeader?.requestHandle ?? 0
+    const nodesToWrite = request.nodesToWrite ?? []
+
+    this.logger.debug(`Write ${nodesToWrite.length} node(s)`)
+
+    const results = nodesToWrite.map(wv => this.writeOne(wv))
+
+    const response = new WriteResponse()
+    response.responseHeader = makeResponseHeader(requestHandle)
+    response.results = results
+    response.diagnosticInfos = new Array<DiagnosticInfo>(results.length).fill(new DiagnosticInfo())
+    return response
+  }
+
+  private writeOne(wv: WriteValue): StatusCode {
+    if (wv.nodeId == null) {
+      return StatusCode.BadNodeIdInvalid
+    }
+    if (wv.value == null) {
+      return StatusCode.BadTypeMismatch
+    }
+    if (wv.attributeId !== AttributeId.Value) {
+      return StatusCode.BadNotWritable
+    }
+
+    const accessLevelDv = this.addressSpace.read(wv.nodeId, AttributeId.UserAccessLevel)
+    if (accessLevelDv.statusCode === StatusCode.BadNodeIdUnknown) {
+      return StatusCode.BadNodeIdUnknown
+    }
+    if (accessLevelDv.statusCode === StatusCode.BadAttributeIdInvalid) {
+      // Not a Variable node — Value is not a valid attribute for it.
+      return StatusCode.BadAttributeIdInvalid
+    }
+    const accessLevel = (accessLevelDv.value?.value as number | undefined) ?? 0
+    if ((accessLevel & AccessLevelFlags.CurrentWrite) === 0) {
+      return StatusCode.BadNotWritable
+    }
+
+    let newVariant = wv.value.value
+    if (wv.indexRange) {
+      const accessLevelExDv = this.addressSpace.read(wv.nodeId, AttributeId.AccessLevelEx)
+      const accessLevelEx = (accessLevelExDv.value?.value as number | undefined) ?? 0
+      if ((accessLevelEx & AccessLevelExFlags.WriteFullArrayOnly) !== 0) {
+        return StatusCode.BadWriteNotSupported
+      }
+      const currentDv = this.addressSpace.read(wv.nodeId, AttributeId.Value)
+      if (currentDv.value === undefined || newVariant === undefined) {
+        return StatusCode.BadIndexRangeNoData
+      }
+      const merged = mergeIndexRange(currentDv.value, wv.indexRange, newVariant)
+      if (typeof merged === 'number') {
+        return merged
+      }
+      newVariant = merged
+    }
+
+    const statusCodeWv = wv.value.statusCode ?? StatusCode.Good
+    const sourceTimestampWv = wv.value.sourceTimestamp
+    const finalStatusCode =
+      (accessLevel & AccessLevelFlags.StatusWrite) !== 0 ? statusCodeWv : StatusCode.Good
+    const finalSourceTimestamp =
+      (accessLevel & AccessLevelFlags.TimestampWrite) !== 0 ? (sourceTimestampWv ?? new Date()) : new Date()
+
+    return this.addressSpace.write(
+      wv.nodeId,
+      AttributeId.Value,
+      new DataValue(newVariant, finalStatusCode, finalSourceTimestamp),
+    )
+  }
+}
+
+/**
+ * Merges `newValue` into `current` at the given `IndexRange` (OPC UA Part 4 §7.27).
+ * Returns the merged `Variant`, or a `StatusCode` describing why the merge failed.
+ */
+function mergeIndexRange(current: Variant, indexRange: string, newValue: Variant): Variant | StatusCode {
+  const range = NumericRange.parse(indexRange)
+  if (range === undefined) {
+    return StatusCode.BadIndexRangeInvalid
+  }
+  if (range.dimensions.length !== 1) {
+    return StatusCode.BadIndexRangeNoData
+  }
+  const dim = range.dimensions[0]
+
+  if (current.isArray()) {
+    const array = (current.value as unknown[]).slice()
+    const replacement = Array.isArray(newValue.value) ? (newValue.value as unknown[]) : [newValue.value]
+    if (dim.start >= array.length) {
+      return StatusCode.BadIndexRangeNoData
+    }
+    const end = Math.min(dim.end, array.length - 1)
+    if (replacement.length !== end - dim.start + 1) {
+      return StatusCode.BadIndexRangeNoData
+    }
+    for (let i = 0; i < replacement.length; i++) {
+      array[dim.start + i] = replacement[i]
+    }
+    return new Variant(current.type, array as VariantArrayValue, current.arrayDimensions)
+  }
+
+  if (typeof current.value === 'string' && typeof newValue.value === 'string') {
+    return mergeStringRange(current, newValue.value, dim)
+  }
+
+  return StatusCode.BadIndexRangeNoData
+}
+
+function mergeStringRange(
+  current: Variant,
+  replacement: string,
+  dim: NumericRangeDimension,
+): Variant | StatusCode {
+  const value = current.value as string
+  if (dim.start >= value.length) {
+    return StatusCode.BadIndexRangeNoData
+  }
+  const end = Math.min(dim.end, value.length - 1)
+  if (replacement.length !== end - dim.start + 1) {
+    return StatusCode.BadIndexRangeNoData
+  }
+  const merged = value.slice(0, dim.start) + replacement + value.slice(end + 1)
+  return new Variant(current.type, merged)
 }
 
 /**

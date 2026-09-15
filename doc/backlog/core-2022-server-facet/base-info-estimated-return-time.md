@@ -2,7 +2,7 @@
 
 **Facet**: Core 2022 Server Facet  
 **Type**: Optional  
-**Status**: ❌ Not Implemented  
+**Status**: ✅ Implemented  
 
 ## Description
 
@@ -19,3 +19,8 @@ The server must support the `EstimatedReturnTime` Property on the `Server` Objec
 |-----------|---------|-------|
 | OPC 10000-5 | §8.2 | Server Object / EstimatedReturnTime |
 | profiles.opcfoundation.org | [CU 3198](https://profiles.opcfoundation.org/conformanceunit/3198) | Base Info Estimated Return Time |
+
+## Implementation
+
+**Files**:
+- `packages/server/src/addressSpace/addressSpace.ts` — `populateOptionalExtras()` creates `EstimatedReturnTime` (`ns=0;i=2992`) as a `HasComponent` child of `ServerStatus`, defaulted to OPC UA `MinDateTime` (`-11_644_473_600_000` ms epoch) to indicate no planned shutdown; writable so an operator/administration path can set it before a planned outage.

@@ -2,7 +2,7 @@
 
 **Facet**: Core 2022 Server Facet  
 **Type**: Optional  
-**Status**: ❌ Not Implemented  
+**Status**: ✅ Implemented  
 
 ## Description
 
@@ -25,3 +25,10 @@ The server must support the `NamespaceMetaData` Object for all namespaces in the
 |-----------|---------|-------|
 | OPC 10000-5 | §8.4 | NamespaceMetaDataType |
 | profiles.opcfoundation.org | [CU 3545](https://profiles.opcfoundation.org/conformanceunit/3545) | Base Info Namespace Metadata |
+
+## Implementation
+
+**Files**:
+- `packages/server/src/addressSpace/addressSpace.ts` — `populateOptionalExtras()` creates a `Namespaces` Object (custom NodeId `ns=1;i=8` — canonical ns=0 id not available in this codebase's reference tables) as a `HasComponent` child of `Server`, containing one metadata Object per namespace with static NodeIds (`http://opcfoundation.org/UA/` and this server's default namespace), each exposing `NamespaceUri` and `IsNamespaceSubset` Properties.
+
+**Not yet implemented**: `NamespaceVersion`, `NamespacePublicationDate`, `StaticNodeIdTypes`, and `StaticNumericNodeIdRange`/`StaticStringNodeIdPattern` are not populated.

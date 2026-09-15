@@ -2,7 +2,7 @@
 
 **Facet**: Core 2022 Server Facet  
 **Type**: Required  
-**Status**: ❌ Not Implemented  
+**Status**: ✅ Implemented  
 
 ## Description
 
@@ -36,3 +36,9 @@ Plus the `OperationLimits` Object with:
 |-----------|---------|-------|
 | OPC 10000-5 | §8.2 | ServerCapabilities Object |
 | profiles.opcfoundation.org | [CU 3912](https://profiles.opcfoundation.org/conformanceunit/3912) | Base Info Server Capabilities 2 |
+
+## Implementation
+
+**Files**:
+- `packages/server/src/addressSpace/addressSpace.ts` — `populateServerObject()` creates the `ServerCapabilities` Object (`i=2268`, typed `ServerCapabilitiesType`) under `Server`, with `ServerProfileArray`, `LocaleIdArray`, `MinSupportedSampleRate`, `MaxBrowseContinuationPoints`, `MaxArrayLength`, `MaxStringLength`, `MaxByteStringLength`, `MaxSessions` (custom `ns=1` NodeId, since the spec leaves it vendor-defined), a `ModellingRules` Folder, and an `OperationLimits` Object exposing `MaxNodesPerRead`, `MaxNodesPerWrite`, `MaxNodesPerBrowse`, `MaxNodesPerRegisterNodes`, and `MaxNodesPerTranslateBrowsePathsToNodeIds`.
+- `packages/server/src/addressSpace/wellKnownIds.ts` — well-known NodeIds for all of the above.

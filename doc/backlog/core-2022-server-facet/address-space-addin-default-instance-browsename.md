@@ -2,7 +2,7 @@
 
 **Facet**: Core 2022 Server Facet  
 **Type**: Optional  
-**Status**: ❌ Not Implemented  
+**Status**: ✅ Implemented  
 
 ## Description
 
@@ -18,3 +18,8 @@ The server must support the `DefaultInstanceBrowseName` Property for ObjectTypes
 |-----------|---------|-------|
 | OPC 10000-3 | §6.4 | ObjectType DefaultInstanceBrowseName |
 | profiles.opcfoundation.org | [CU 2447](https://profiles.opcfoundation.org/conformanceunit/2447) | Address Space AddIn DefaultInstanceBrowsename |
+
+## Implementation
+
+**Files**:
+- `packages/server/src/addressSpace/addressSpace.ts` — `populateOptionalExtras()` adds a `DefaultInstanceBrowseName` Property (`ns=1;i=27`, `QualifiedName`) as a `HasProperty` child of `ServerCapabilitiesType`, valued `ServerCapabilities`.

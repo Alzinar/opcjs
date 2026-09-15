@@ -89,6 +89,8 @@ export class SessionManager {
       isActivated: false,
       createdAt: now,
       lastActivityAt: now,
+      continuationPoints: new Map(),
+      registeredNodes: new Set(),
     }
 
     const key = authenticationToken.toString()

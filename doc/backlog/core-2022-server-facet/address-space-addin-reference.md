@@ -2,7 +2,7 @@
 
 **Facet**: Core 2022 Server Facet  
 **Type**: Optional  
-**Status**: ❌ Not Implemented  
+**Status**: ✅ Implemented  
 
 ## Description
 
@@ -19,3 +19,8 @@ The server must support the `HasAddIn` Reference to bind an AddIn to an Object o
 |-----------|---------|-------|
 | OPC 10000-3 | §4.5 | AddIn pattern |
 | profiles.opcfoundation.org | [CU 2446](https://profiles.opcfoundation.org/conformanceunit/2446) | Address Space AddIn Reference |
+
+## Implementation
+
+**Files**:
+- `packages/server/src/addressSpace/addressSpace.ts` — `populateOptionalExtras()` registers a `HasAddIn` ReferenceType (custom NodeId `ns=1;i=5` — the canonical ns=0 NodeId was not available in this codebase's reference tables — subtype of `NonHierarchicalReferences`) and links `Server` to its `Locations` Object via `HasAddIn`, demonstrating Browse-visible AddIn binding.

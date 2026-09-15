@@ -2,7 +2,7 @@
 
 **Facet**: Core 2022 Server Facet  
 **Type**: Required  
-**Status**: ❌ Not Implemented  
+**Status**: ✅ Implemented  
 
 ## Description
 
@@ -24,3 +24,9 @@ The server must support the `TranslateBrowsePathsToNodeIds` Service, which allow
 | OPC 10000-4 | §5.8.4 | TranslateBrowsePathsToNodeIds Service |
 | OPC 10000-4 | §7.31 | RelativePath |
 | profiles.opcfoundation.org | [CU 2317](https://profiles.opcfoundation.org/conformanceunit/2317) | View TranslateBrowsePath |
+
+## Implementation
+
+**Files**:
+- `packages/server/src/services/viewService.ts` — `translateBrowsePathsToNodeIds()`/`translateOne()` walk each `RelativePathElement` (`referenceTypeId`, `isInverse`, `includeSubtypes`, `targetName`) from the starting node, following matching references at each step and fanning out across multiple matches; returns `Bad_NodeIdUnknown` for an unknown starting node and `Bad_NoMatch` when no target is found.
+- `packages/server/src/services/serviceDispatcher.ts` — routes `TranslateBrowsePathsToNodeIdsRequest` to `ViewService` (no session required, per spec).

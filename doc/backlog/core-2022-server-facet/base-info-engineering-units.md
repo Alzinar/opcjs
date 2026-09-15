@@ -2,7 +2,7 @@
 
 **Facet**: Core 2022 Server Facet  
 **Type**: Optional  
-**Status**: ❌ Not Implemented  
+**Status**: ✅ Implemented  
 
 ## Description
 
@@ -22,3 +22,9 @@ The server must support defining Variables that include the `EngineeringUnits` P
 |-----------|---------|-------|
 | OPC 10000-8 | §5.6.3 | EUInformation DataType |
 | profiles.opcfoundation.org | [CU 2745](https://profiles.opcfoundation.org/conformanceunit/2745) | Base Info Engineering Units |
+
+## Implementation
+
+**Files**:
+- `packages/server/src/addressSpace/addressSpace.ts` — `populateOptionalExtras()` registers the `EUInformation` DataType node (`ns=0;i=887`) and adds a representative `Temperature` Variable (`ns=1;i=16`) with an `EngineeringUnits` Property (`ns=1;i=17`) valued as an `ExtensionObject`-encoded `EUInformation` (`namespaceUri = http://www.opcfoundation.org/UA/units/un/cefact`, UN/CEFACT code `Cel`, displayName `°C`).
+- `packages/base` — `EUInformation` class and its encoders/decoders already existed in the generated schema.

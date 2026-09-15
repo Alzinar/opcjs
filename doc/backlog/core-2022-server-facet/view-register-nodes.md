@@ -2,7 +2,7 @@
 
 **Facet**: Core 2022 Server Facet  
 **Type**: Required  
-**Status**: ❌ Not Implemented  
+**Status**: ✅ Implemented  
 
 ## Description
 
@@ -29,3 +29,9 @@ The server must support the `RegisterNodes` and `UnregisterNodes` Services as a 
 | OPC 10000-4 | §5.8.5 | RegisterNodes Service |
 | OPC 10000-4 | §5.8.6 | UnregisterNodes Service |
 | profiles.opcfoundation.org | [CU 3073](https://profiles.opcfoundation.org/conformanceunit/3073) | View RegisterNodes |
+
+## Implementation
+
+**Files**:
+- `packages/server/src/services/viewService.ts` — `registerNodes()`/`unregisterNodes()` implement the minimal-compliant form described in the CU: NodeIds are tracked in `Session.registeredNodes` (a session-scoped `Set<string>`) and returned unchanged; unregistering an unknown NodeId is a no-op.
+- `packages/server/src/sessions/session.ts` — `registeredNodes` is cleared when the session ends.

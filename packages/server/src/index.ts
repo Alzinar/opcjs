@@ -16,13 +16,30 @@ export { validateAnonymousToken, AuthenticationError } from './security/anonymou
 export type { IAddressSpace } from './addressSpace/iAddressSpace.js'
 export { StubAddressSpace } from './addressSpace/stubAddressSpace.js'
 export { AddressSpace } from './addressSpace/addressSpace.js'
-export { AttributeId, ObjectNode, VariableNode, OpcUaNode } from './addressSpace/node.js'
+export {
+  AttributeId,
+  AccessLevelFlags,
+  AccessLevelExFlags,
+  ObjectNode,
+  VariableNode,
+  ObjectTypeNode,
+  VariableTypeNode,
+  ReferenceTypeNode,
+  DataTypeNode,
+  MethodNode,
+  ViewNode,
+  OpcUaNode,
+} from './addressSpace/node.js'
+export type { ReferenceRecord } from './addressSpace/node.js'
+export { ReferenceTypeIds, ObjectIds, ObjectTypeIds, VariableTypeIds, DataTypeIds } from './addressSpace/wellKnownIds.js'
 export { ServiceDispatcher } from './services/serviceDispatcher.js'
 export { SessionService } from './services/sessionService.js'
 export { AttributeService } from './services/attributeService.js'
 export { DiscoveryService } from './services/discoveryService.js'
 export { SubscriptionService } from './services/subscriptionService.js'
 export { MonitoredItemService } from './services/monitoredItemService.js'
+export { ViewService } from './services/viewService.js'
+export type { ContinuationPointEntry } from './services/viewService.js'
 export { SubscriptionManager } from './subscription/subscriptionManager.js'
 export { Subscription, reviseSubscriptionParameters } from './subscription/subscription.js'
 export type { PublishCallback, RevisedSubscriptionParameters, MonitoredItemArgs } from './subscription/subscription.js'

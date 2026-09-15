@@ -2,7 +2,7 @@
 
 **Facet**: Core 2022 Server Facet  
 **Type**: Optional  
-**Status**: ❌ Not Implemented  
+**Status**: ✅ Implemented  
 
 ## Description
 
@@ -24,3 +24,9 @@ The server must support setting the `NonVolatile` and `Constant` flags in the `A
 |-----------|---------|-------|
 | OPC 10000-3 | §5.6.2 | AccessLevelEx Attribute |
 | profiles.opcfoundation.org | [CU 4237](https://profiles.opcfoundation.org/conformanceunit/4237) | Address Space NonVolatile and Constant |
+
+## Implementation
+
+**Files**:
+- `packages/server/src/addressSpace/node.ts` — `AccessLevelExFlags.NonVolatile` (`0x1000`) and `AccessLevelExFlags.Constant` (`0x2000`) bit masks.
+- `packages/server/src/addressSpace/addressSpace.ts` — `populateOptionalExtras()` creates a representative `PiConstant` Variable (`ns=1;i=15`) with both bits set, demonstrating a value that is both persistent and immutable for the lifetime of the server instance.

@@ -2,7 +2,7 @@
 
 **Facet**: Core 2022 Server Facet  
 **Type**: Required  
-**Status**: ❌ Not Implemented  
+**Status**: ✅ Implemented  
 
 ## Description
 
@@ -31,3 +31,10 @@ The server must support the View Service Set: `Browse` and `BrowseNext`. It must
 | OPC 10000-4 | §5.8.2 | Browse Service |
 | OPC 10000-4 | §5.8.3 | BrowseNext Service |
 | profiles.opcfoundation.org | [CU 3530](https://profiles.opcfoundation.org/conformanceunit/3530) | View Basic 2 |
+
+## Implementation
+
+**Files**:
+- `packages/server/src/services/viewService.ts` — `ViewService.browse()`/`browseNext()` implement both services: `BrowseDirection` (Forward/Inverse/Both), `ReferenceTypeId` filtering (with `includeSubtypes`, via `AddressSpace.isSameOrSubtypeOf`), `NodeClassMask`, and `ResultMask` are all honoured. `paginate()` slices results to `requestedMaxReferencesPerNode`, storing the remainder as a per-session continuation-point entry (`Session.continuationPoints`); `browseNext()` supports `releaseContinuationPoints` and returns `Bad_ContinuationPointInvalid` for unknown tokens.
+- `packages/server/src/services/serviceDispatcher.ts` — routes `BrowseRequest`/`BrowseNextRequest` to `ViewService`.
+- `packages/server/src/sessions/session.ts` — `continuationPoints: Map<string, ContinuationPointEntry>` gives each session an unbounded number of simultaneous continuation points.

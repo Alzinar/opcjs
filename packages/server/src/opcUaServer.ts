@@ -11,6 +11,7 @@ import { MonitoredItemService } from './services/monitoredItemService.js'
 import { ServiceDispatcher } from './services/serviceDispatcher.js'
 import { SessionService } from './services/sessionService.js'
 import { SubscriptionService } from './services/subscriptionService.js'
+import { ViewService } from './services/viewService.js'
 import { SessionManager } from './sessions/sessionManager.js'
 import { SubscriptionManager } from './subscription/subscriptionManager.js'
 import { ConnectionHandler } from './transport/connectionHandler.js'
@@ -91,6 +92,7 @@ export class OpcUaServer {
     )
     const attributeSvc = new AttributeService(this.addressSpace)
     const discoverySvc = new DiscoveryService(this.config, this.config.endpointPath)
+    const viewSvc = new ViewService(this.addressSpace)
     const dispatcher = new ServiceDispatcher(
       sessionManager,
       sessionSvc,
@@ -98,6 +100,7 @@ export class OpcUaServer {
       discoverySvc,
       subscriptionSvc,
       monitoredItemSvc,
+      viewSvc,
     )
 
     this.listener = new WebSocketListener(this.config.port, this.config.endpointPath, ws => {

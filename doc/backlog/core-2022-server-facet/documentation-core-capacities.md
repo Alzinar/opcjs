@@ -2,7 +2,7 @@
 
 **Facet**: Core 2022 Server Facet  
 **Type**: Required  
-**Status**: ❌ Not Implemented  
+**Status**: ✅ Implemented  
 
 ## Description
 
@@ -28,3 +28,11 @@ These capacity values must also be exposed in the `ServerCapabilities` Object in
 |-----------|---------|-------|
 | OPC 10000-5 | §8.2 | ServerCapabilities Object |
 | profiles.opcfoundation.org | [CU 3808](https://profiles.opcfoundation.org/conformanceunit/3808) | Documentation – Core Capacities |
+
+## Implementation
+
+**Files**:
+- `packages/server/README.md` — "Server capacities" section documents the fixed capacity values for integrators/operators.
+- `packages/server/src/addressSpace/addressSpace.ts` — the same values are exposed live in the `ServerCapabilities` Object (see [base-info-server-capabilities-2.md](./base-info-server-capabilities-2.md)).
+
+Current values: unlimited SecureChannels (one `ws` connection per accepted socket), `MaxSessions` = 100, `MaxBrowseContinuationPoints` = 10 per session. Subscriptions are supported but have no configured caps yet (unbounded MonitoredItems/Subscriptions/retransmission queue), so those are documented as "unbounded" rather than a specific number.

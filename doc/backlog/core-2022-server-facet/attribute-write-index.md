@@ -2,7 +2,7 @@
 
 **Facet**: Core 2022 Server Facet  
 **Type**: Optional  
-**Status**: ❌ Not Implemented  
+**Status**: ✅ Implemented  
 
 ## Description
 
@@ -21,3 +21,8 @@ The server must support the `IndexRange` parameter in `Write` requests to write 
 | OPC 10000-4 | §5.10.4 | Write Service |
 | OPC 10000-4 | §7.22 | NumericRange (IndexRange) |
 | profiles.opcfoundation.org | [CU 3147](https://profiles.opcfoundation.org/conformanceunit/3147) | Attribute Write Index |
+
+## Implementation
+
+**Files**:
+- `packages/server/src/services/attributeService.ts` — `mergeIndexRange()` parses `WriteValue.indexRange` (via `NumericRange.parse`) and merges the supplied sub-array into the current array value; returns `Bad_IndexRangeInvalid`/`Bad_IndexRangeNoData` for malformed or out-of-bounds ranges, and `Bad_WriteNotSupported` when the target has `AccessLevelEx.WriteFullArrayOnly` set.

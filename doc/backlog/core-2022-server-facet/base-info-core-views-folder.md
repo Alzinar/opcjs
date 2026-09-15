@@ -2,7 +2,7 @@
 
 **Facet**: Core 2022 Server Facet  
 **Type**: Optional  
-**Status**: ❌ Not Implemented  
+**Status**: ✅ Implemented  
 
 ## Description
 
@@ -19,3 +19,8 @@ The server must expose the `Views` folder as the standard entry point into View 
 |-----------|---------|-------|
 | OPC 10000-5 | §8.2 | Standard AddressSpace structure |
 | profiles.opcfoundation.org | [CU 3186](https://profiles.opcfoundation.org/conformanceunit/3186) | Base Info Core Views Folder |
+
+## Implementation
+
+**Files**:
+- `packages/server/src/addressSpace/addressSpace.ts` — `populateCoreStructure()` creates `Views` (i=87) typed `FolderType`, `Organizes`-linked from `Root`, and organises a representative `ServerView` (`ns=1;i=1`, `ViewNode`) as its child.

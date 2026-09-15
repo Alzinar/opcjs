@@ -2,7 +2,7 @@
 
 **Facet**: Core 2022 Server Facet  
 **Type**: Required  
-**Status**: ⚠️ Partially Implemented  
+**Status**: ✅ Implemented  
 
 ## Description
 
@@ -25,8 +25,5 @@ The server must implement basic service behaviour for all services within a sess
 ## Implementation
 
 **Files**:
-- `packages/server/src/services/serviceDispatcher.ts` — validates `authenticationToken` before dispatching, returns `ServiceFault` with the correct status code on failure
-- `packages/server/src/services/responseHeader.ts` — `makeResponseHeader()` echoes `requestHandle` on every response
-
-**Not yet implemented**:
-- `timeoutHint` from the `RequestHeader` is not read or enforced anywhere — requests are processed to completion regardless of the client's hint.
+- `packages/server/src/services/serviceDispatcher.ts` — validates `authenticationToken` before dispatching, returns `ServiceFault` with the correct status code on failure; `isRequestStale()` reads `RequestHeader.timeoutHint`/`timestamp` and rejects requests with `Bad_Timeout` once the hint has elapsed.
+- `packages/server/src/services/responseHeader.ts` — `makeResponseHeader()` echoes `requestHandle` on every response.

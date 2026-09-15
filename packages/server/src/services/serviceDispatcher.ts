@@ -1,5 +1,7 @@
 import {
   ActivateSessionRequest,
+  BrowseNextRequest,
+  BrowseRequest,
   CloseSessionRequest,
   CreateMonitoredItemsRequest,
   CreateSessionRequest,
@@ -14,11 +16,15 @@ import {
   NodeId,
   PublishRequest,
   ReadRequest,
+  RegisterNodesRequest,
   RepublishRequest,
   ResponseHeader,
   ServiceFault,
   SetPublishingModeRequest,
   StatusCode,
+  TranslateBrowsePathsToNodeIdsRequest,
+  UnregisterNodesRequest,
+  WriteRequest,
   getLogger,
 } from 'opcjs-base'
 import type { IOpcType, ILogger } from 'opcjs-base'
@@ -30,6 +36,7 @@ import type { DiscoveryService } from './discoveryService.js'
 import type { MonitoredItemService } from './monitoredItemService.js'
 import type { SessionService } from './sessionService.js'
 import type { SubscriptionService } from './subscriptionService.js'
+import type { ViewService } from './viewService.js'
 
 /**
  * Routes decoded OPC UA service requests to the appropriate handler.
@@ -54,6 +61,7 @@ export class ServiceDispatcher {
     private readonly discoverySvc: DiscoveryService,
     private readonly subscriptionSvc: SubscriptionService,
     private readonly monitoredItemSvc: MonitoredItemService,
+    private readonly viewSvc: ViewService,
   ) {
     this.logger = getLogger('services.ServiceDispatcher')
   }
@@ -98,6 +106,10 @@ export class ServiceDispatcher {
 
     this.sessionManager.touchSession(authToken)
 
+    if (isRequestStale(request)) {
+      return makeServiceFault(extractRequestHandle(request), StatusCode.BadTimeout)
+    }
+
     if (request instanceof CloseSessionRequest) {
       return this.sessionSvc.closeSession(request)
     }
@@ -105,6 +117,29 @@ export class ServiceDispatcher {
       // Session is guaranteed valid after validateSession above.
       const session = this.sessionManager.validateSession(authToken)
       return this.attributeSvc.read(request, session)
+    }
+    if (request instanceof WriteRequest) {
+      const session = this.sessionManager.validateSession(authToken)
+      return this.attributeSvc.write(request, session)
+    }
+    if (request instanceof BrowseRequest) {
+      const session = this.sessionManager.validateSession(authToken)
+      return this.viewSvc.browse(request, session)
+    }
+    if (request instanceof BrowseNextRequest) {
+      const session = this.sessionManager.validateSession(authToken)
+      return this.viewSvc.browseNext(request, session)
+    }
+    if (request instanceof TranslateBrowsePathsToNodeIdsRequest) {
+      return this.viewSvc.translateBrowsePathsToNodeIds(request)
+    }
+    if (request instanceof RegisterNodesRequest) {
+      const session = this.sessionManager.validateSession(authToken)
+      return this.viewSvc.registerNodes(request, session)
+    }
+    if (request instanceof UnregisterNodesRequest) {
+      const session = this.sessionManager.validateSession(authToken)
+      return this.viewSvc.unregisterNodes(request, session)
     }
     if (request instanceof CreateSubscriptionRequest) {
       const session = this.sessionManager.validateSession(authToken)
@@ -139,7 +174,14 @@ export class ServiceDispatcher {
 
 // ── module-level helpers ───────────────────────────────────────────────────
 
-type RequestLike = { requestHeader?: { authenticationToken?: NodeId; requestHandle?: number } }
+type RequestLike = {
+  requestHeader?: {
+    authenticationToken?: NodeId
+    requestHandle?: number
+    timestamp?: Date
+    timeoutHint?: number
+  }
+}
 
 function extractAuthToken(request: IOpcType): NodeId | undefined {
   return (request as RequestLike).requestHeader?.authenticationToken
@@ -147,6 +189,21 @@ function extractAuthToken(request: IOpcType): NodeId | undefined {
 
 function extractRequestHandle(request: IOpcType): number {
   return (request as RequestLike).requestHeader?.requestHandle ?? 0
+}
+
+/**
+ * Session General Service Behaviour (OPC UA Part 4 §5.6.1): if the request
+ * has already sat longer than its `timeoutHint` (milliseconds) since it was
+ * timestamped by the client, the server rejects it instead of processing it.
+ * A `timeoutHint` of 0 (or absent) means "no timeout".
+ */
+function isRequestStale(request: IOpcType): boolean {
+  const header = (request as RequestLike).requestHeader
+  if (header?.timeoutHint == null || header.timeoutHint <= 0 || header.timestamp == null) {
+    return false
+  }
+  const elapsedMs = Date.now() - header.timestamp.getTime()
+  return elapsedMs > header.timeoutHint
 }
 
 function makeServiceFault(requestHandle: number, statusCode: StatusCode): ServiceFault {

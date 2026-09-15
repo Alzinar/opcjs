@@ -184,6 +184,8 @@ describe('SubscriptionService.publish', () => {
       isActivated: true,
       createdAt: new Date(),
       lastActivityAt: new Date(),
+      continuationPoints: new Map(),
+      registeredNodes: new Set<string>(),
     }
     const createRes = subscriptionSvc.createSubscription(createReq, session)
     expect(createRes.responseHeader?.serviceResult).toBe(StatusCode.Good)

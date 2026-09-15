@@ -1,5 +1,7 @@
 import type { NodeId } from 'opcjs-base'
 
+import type { ContinuationPointEntry } from '../services/viewService.js'
+
 /**
  * Represents a single server-side OPC UA session.
  *
@@ -30,4 +32,17 @@ export type Session = {
   readonly createdAt: Date
   /** Timestamp of the most recent service request on this session. */
   lastActivityAt: Date
+  /**
+   * Outstanding `Browse` / `BrowseNext` continuation points for this
+   * session, keyed by a hex token. Session-scoped: discarded when the
+   * session ends (OPC UA Part 4 §5.8.2/§5.8.3).
+   */
+  readonly continuationPoints: Map<string, ContinuationPointEntry>
+  /**
+   * NodeIds registered via `RegisterNodes` for this session, keyed by their
+   * string form. Session-scoped: discarded when the session ends
+   * (OPC UA Part 4 §5.8.5).
+   */
+  readonly registeredNodes: Set<string>
 }
+
