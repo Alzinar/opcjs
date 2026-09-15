@@ -38,14 +38,6 @@ await server.start()
 console.log(`OPC UA server listening at ${server.endpointUrl}`)
 ```
 
-## Subscriptions
-
-Targets the [Embedded DataChange Subscription 2022 Server Facet][facet]. The Publish service is implemented as a long-poll: the server holds the Publish response until a notification or keep-alive is ready, then ships it. Each Session may close cleanly with `deleteSubscriptions = true` to release every Subscription it owns.
-
-The publishing loop, sequence numbers, keep-alive counter, and lifetime counter follow OPC UA Part 4 §5.14.1.
-
-[facet]: ../../doc/backlog/embedded-datachange-subscription-2022-server-facet/README.md
-
 ## Conformance status
 
 See the [doc/backlog/](../../doc/backlog/README.md) for the per-facet conformance breakdown.

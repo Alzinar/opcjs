@@ -2,7 +2,7 @@
 
 **Facet**: Embedded DataChange Subscription 2022 Server Facet  
 **Type**: Required  
-**Status**: ⚠️ Partial – `Republish` not yet implemented
+**Status**: ✅ Implemented
 
 ## Description
 
@@ -15,10 +15,10 @@ OPC 10000-4 §5.14 defines the full Subscription service set. A Subscription mul
 | Service | Spec § | Status | Notes |
 |---------|--------|--------|-------|
 | CreateSubscription | 5.14.2 | ✅ | Revises `publishingInterval` (50 ms min, 1 h max), `lifetimeCount` (≥ 3 × `keepAliveCount`), `maxKeepAliveCount`. |
-| ModifySubscription | 5.14.3 | ⚠️ | Revises parameters but the running publishing timer is not yet re-armed. |
+| ModifySubscription | 5.14.3 | ✅ | Revises parameters and re-arms the publishing timer immediately with the new interval; resets keep-alive/lifetime counters. |
 | SetPublishingMode | 5.14.4 | ✅ | Enables/disables publishing on a per-subscription basis. |
 | Publish | 5.14.5 | ✅ | Long-poll: resolves when a notification or keep-alive is ready. Routes acknowledgements via `Subscription.processAcknowledgements`. |
-| Republish | 5.14.6 | ❌ | Always returns `Bad_MessageNotAvailable`. |
+| Republish | 5.14.6 | ✅ | Returns the retained `NotificationMessage` matching `retransmitSequenceNumber`, or `Bad_MessageNotAvailable` if it is no longer available. |
 | DeleteSubscriptions | 5.14.7 | ✅ | Stops the publishing timer and frees resources. |
 
 ### Subscription state machine (Part 4 §5.14.1)
@@ -32,7 +32,7 @@ The publishing timer fires every `publishingInterval` ms. On each tick the Subsc
 
 ### Sequence numbers
 
-`NotificationMessage.sequenceNumber` starts at 1 and increments per real notification. Keep-alives reuse the *next* sequence number without consuming it (Part 4 §5.14.1.3). Up to 16 unacknowledged messages are retained for republish (currently never returned).
+`NotificationMessage.sequenceNumber` starts at 1 and increments per real notification. Keep-alives reuse the *next* sequence number without consuming it (Part 4 §5.14.1.3). Up to 16 unacknowledged messages are retained for republish and returned via `Subscription.republish(sequenceNumber)`.
 
 ## Specification References
 

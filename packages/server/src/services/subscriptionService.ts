@@ -31,7 +31,7 @@ import { makeResponseHeader } from './responseHeader.js'
  *  - SetPublishingMode
  *  - Publish  (long-poll; returns a Promise that resolves when the server has
  *    a notification or keep-alive to send)
- *  - Republish (stubbed — returns `Bad_MessageNotAvailable`)
+ *  - Republish (returns a retained NotificationMessage or `Bad_MessageNotAvailable`)
  *
  * The service does not touch transport — all responses are returned to the
  * dispatcher which forwards them through the secure channel.
@@ -76,10 +76,9 @@ export class SubscriptionService {
   // ── ModifySubscription ────────────────────────────────────────────────
 
   /**
-   * Server-side ModifySubscription is intentionally limited: we revise the
-   * parameters and report the revised values, but do not change the running
-   * timer (a future revision can recreate the subscription with the new
-   * parameters). Returns `Bad_SubscriptionIdInvalid` for unknown ids.
+   * Revises the requested parameters and re-arms the subscription's
+   * publishing timer so the change takes effect immediately (Part 4
+   * §5.14.3.1). Returns `Bad_SubscriptionIdInvalid` for unknown ids.
    */
   modifySubscription(
     request: ModifySubscriptionRequest,
@@ -97,13 +96,12 @@ export class SubscriptionService {
       return response
     }
 
-    // Revise but keep the existing subscription running with its original timer.
-    // Reporting the requested values is acceptable per Part 4 §5.14.3.
     const revised = reviseSubscriptionParameters({
       publishingInterval: request.requestedPublishingInterval,
       maxKeepAliveCount: request.requestedMaxKeepAliveCount,
       lifetimeCount: request.requestedLifetimeCount,
     })
+    sub.modify(revised)
     response.responseHeader = makeResponseHeader(requestHandle)
     response.revisedPublishingInterval = revised.publishingInterval
     response.revisedLifetimeCount = revised.lifetimeCount
@@ -234,16 +232,38 @@ export class SubscriptionService {
     })
   }
 
-  // ── Republish (stub) ──────────────────────────────────────────────────
+  // ── Republish ─────────────────────────────────────────────────────────
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  /**
+   * Returns the retained NotificationMessage identified by
+   * `retransmitSequenceNumber` from the subscription's retransmission queue
+   * (Part 4 §5.14.6). Returns `Bad_SubscriptionIdInvalid` if the subscription
+   * is unknown or not owned by this session, and `Bad_MessageNotAvailable` if
+   * the message has already been discarded or acknowledged.
+   */
   republish(request: RepublishRequest, authToken: NodeId): RepublishResponse {
     const requestHandle = request.requestHeader?.requestHandle ?? 0
     const response = new RepublishResponse()
-    response.responseHeader = makeResponseHeader(
-      requestHandle,
-      StatusCode.BadMessageNotAvailable,
-    )
+    const sub = this.subscriptionManager.getOwned(request.subscriptionId, authToken)
+    if (sub === undefined) {
+      response.responseHeader = makeResponseHeader(
+        requestHandle,
+        StatusCode.BadSubscriptionIdInvalid,
+      )
+      return response
+    }
+
+    const message = sub.republish(request.retransmitSequenceNumber)
+    if (message === undefined) {
+      response.responseHeader = makeResponseHeader(
+        requestHandle,
+        StatusCode.BadMessageNotAvailable,
+      )
+      return response
+    }
+
+    response.responseHeader = makeResponseHeader(requestHandle)
+    response.notificationMessage = message
     return response
   }
 

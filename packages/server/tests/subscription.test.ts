@@ -4,10 +4,12 @@ import {
   DataValue,
   DeleteSubscriptionsRequest,
   ExtensionObject,
+  ModifySubscriptionRequest,
   MonitoringModeEnum,
   NodeId,
   PublishRequest,
   ReadValueId,
+  RepublishRequest,
   RequestHeader,
   StatusCode,
   SubscriptionAcknowledgement,
@@ -251,6 +253,171 @@ describe('SubscriptionService.publish', () => {
     expect(delRes.results[0]).toBe(StatusCode.Good)
     expect(manager.count).toBe(0)
   }, 5_000)
+})
+
+describe('SubscriptionService.republish', () => {
+  it('returns Bad_SubscriptionIdInvalid for an unknown subscription', () => {
+    const { subscriptionSvc } = makeStack()
+    const auth = makeAuthToken()
+
+    const req = new RepublishRequest()
+    req.requestHeader = makeRequestHeader(auth)
+    req.subscriptionId = 9999
+    req.retransmitSequenceNumber = 1
+
+    const res = subscriptionSvc.republish(req, auth)
+    expect(res.responseHeader?.serviceResult).toBe(StatusCode.BadSubscriptionIdInvalid)
+  })
+
+  it('returns Bad_MessageNotAvailable for an unretained sequence number', () => {
+    const { manager, subscriptionSvc } = makeStack()
+    const auth = makeAuthToken()
+    const sub = manager.createSubscription({
+      ownerAuthToken: auth,
+      requestedPublishingInterval: 1000,
+      requestedMaxKeepAliveCount: 1000,
+      requestedLifetimeCount: 3000,
+      maxNotificationsPerPublish: 100,
+      publishingEnabled: true,
+      priority: 1,
+    })
+
+    const req = new RepublishRequest()
+    req.requestHeader = makeRequestHeader(auth)
+    req.subscriptionId = sub.subscriptionId
+    req.retransmitSequenceNumber = 42
+
+    const res = subscriptionSvc.republish(req, auth)
+    expect(res.responseHeader?.serviceResult).toBe(StatusCode.BadMessageNotAvailable)
+
+    sub.dispose()
+  })
+
+  it('returns a previously sent NotificationMessage by sequence number', async () => {
+    const { addressSpace, manager, subscriptionSvc, monitoredItemSvc } = makeStack()
+    const auth = makeAuthToken()
+
+    const nodeId = NodeId.newNumeric(1, 3000)
+    addressSpace.addVariable(nodeId, 'RepublishVar', NodeId.newNumeric(0, 6), Variant.newFrom(uaInt32(1)))
+
+    const sub = manager.createSubscription({
+      ownerAuthToken: auth,
+      requestedPublishingInterval: 50,
+      requestedMaxKeepAliveCount: 100,
+      requestedLifetimeCount: 1000,
+      maxNotificationsPerPublish: 100,
+      publishingEnabled: true,
+      priority: 1,
+    })
+
+    const rvi = new ReadValueId()
+    rvi.nodeId = nodeId
+    rvi.attributeId = AttributeId.Value
+    rvi.indexRange = ''
+    rvi.dataEncoding = { namespaceIndex: 0, name: '' } as never
+
+    const params = new MonitoringParameters()
+    params.clientHandle = 1
+    params.samplingInterval = 50
+    params.queueSize = 1
+    params.discardOldest = true
+    params.filter = ExtensionObject.newEmpty()
+
+    const miCreate = new MonitoredItemCreateRequest()
+    miCreate.itemToMonitor = rvi
+    miCreate.monitoringMode = MonitoringModeEnum.Reporting
+    miCreate.requestedParameters = params
+
+    const cmiReq = new CreateMonitoredItemsRequest()
+    cmiReq.requestHeader = makeRequestHeader(auth)
+    cmiReq.subscriptionId = sub.subscriptionId
+    cmiReq.timestampsToReturn = TimestampsToReturnEnum.Source
+    cmiReq.itemsToCreate = [miCreate]
+    monitoredItemSvc.createMonitoredItems(cmiReq, auth)
+
+    // First publish delivers (and retains) the initial value.
+    const pubReq = new PublishRequest()
+    pubReq.requestHeader = makeRequestHeader(auth)
+    pubReq.subscriptionAcknowledgements = []
+    const pubRes = await subscriptionSvc.publish(pubReq, auth)
+    const seq = pubRes.notificationMessage!.sequenceNumber
+
+    // Republish without acknowledging first — the message must still be available.
+    const repReq = new RepublishRequest()
+    repReq.requestHeader = makeRequestHeader(auth)
+    repReq.subscriptionId = sub.subscriptionId
+    repReq.retransmitSequenceNumber = seq
+
+    const repRes = subscriptionSvc.republish(repReq, auth)
+    expect(repRes.responseHeader?.serviceResult).toBe(StatusCode.Good)
+    expect(repRes.notificationMessage?.sequenceNumber).toBe(seq)
+
+    sub.dispose()
+  }, 5_000)
+})
+
+describe('SubscriptionService.modifySubscription', () => {
+  it('returns Bad_SubscriptionIdInvalid for an unknown subscription', () => {
+    const { subscriptionSvc } = makeStack()
+    const auth = makeAuthToken()
+
+    const req = new ModifySubscriptionRequest()
+    req.requestHeader = makeRequestHeader(auth)
+    req.subscriptionId = 9999
+    req.requestedPublishingInterval = 100
+    req.requestedMaxKeepAliveCount = 5
+    req.requestedLifetimeCount = 20
+    req.maxNotificationsPerPublish = 100
+    req.priority = 0
+
+    const res = subscriptionSvc.modifySubscription(req, auth)
+    expect(res.responseHeader?.serviceResult).toBe(StatusCode.BadSubscriptionIdInvalid)
+  })
+
+  it('re-arms the publishing timer so the new interval takes effect immediately', async () => {
+    const { manager, subscriptionSvc } = makeStack()
+    const auth = makeAuthToken()
+
+    // Long interval — a pending Publish request would not resolve for a long
+    // time unless the timer is re-armed by ModifySubscription.
+    const sub = manager.createSubscription({
+      ownerAuthToken: auth,
+      requestedPublishingInterval: 60_000,
+      requestedMaxKeepAliveCount: 1000,
+      requestedLifetimeCount: 3000,
+      maxNotificationsPerPublish: 100,
+      publishingEnabled: true,
+      priority: 1,
+    })
+
+    const pubReq = new PublishRequest()
+    pubReq.requestHeader = makeRequestHeader(auth)
+    pubReq.subscriptionAcknowledgements = []
+    const pendingPublish = subscriptionSvc.publish(pubReq, auth)
+
+    // Revise down to a fast interval with a keep-alive after a single tick.
+    const modReq = new ModifySubscriptionRequest()
+    modReq.requestHeader = makeRequestHeader(auth)
+    modReq.subscriptionId = sub.subscriptionId
+    modReq.requestedPublishingInterval = 30
+    modReq.requestedMaxKeepAliveCount = 1
+    modReq.requestedLifetimeCount = 20
+    modReq.maxNotificationsPerPublish = 100
+    modReq.priority = 0
+
+    const modRes = subscriptionSvc.modifySubscription(modReq, auth)
+    expect(modRes.responseHeader?.serviceResult).toBe(StatusCode.Good)
+    expect(modRes.revisedPublishingInterval).toBeLessThan(60_000)
+    expect(sub.revisedPublishingInterval).toBe(modRes.revisedPublishingInterval)
+
+    // If the old 60s timer wasn't cleared, this would time out well before
+    // the keep-alive fires on the new interval.
+    const res = await pendingPublish
+    expect(res.subscriptionId).toBe(sub.subscriptionId)
+    expect(res.notificationMessage?.notificationData?.length).toBe(0)
+
+    sub.dispose()
+  }, 2_000)
 })
 
 describe('MonitoredItemService.createMonitoredItems', () => {

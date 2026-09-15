@@ -19,7 +19,7 @@ It includes functionality to create, modify, and delete Subscriptions and to add
 
 | Status | Document | Conformance Unit |
 |--------|----------|-----------------|
-| ⚠️ | [subscription-basic.md](./subscription-basic.md) | Subscription Basic |
+| ✅ | [subscription-basic.md](./subscription-basic.md) | Subscription Basic |
 | ⚠️ | [subscription-publish-basic.md](./subscription-publish-basic.md) | Subscription Publish Basic |
 | ❌ | [subscription-publish-request-queue-overflow.md](./subscription-publish-request-queue-overflow.md) | Subscription PublishRequest Queue Overflow |
 | ⚠️ | [monitor-basic.md](./monitor-basic.md) | Monitor Basic |
@@ -34,7 +34,7 @@ It includes functionality to create, modify, and delete Subscriptions and to add
 
 | Total | Implemented | Partial | Missing |
 |-------|-------------|---------|---------|
-| 10    | 1           | 4       | 5       |
+| 10    | 2           | 3       | 5       |
 
 ## Implementation Notes
 

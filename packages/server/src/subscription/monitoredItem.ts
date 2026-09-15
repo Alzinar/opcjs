@@ -56,13 +56,13 @@ export class MonitoredItem {
       return false
     }
 
-    const dv = addressSpace.read(this.nodeId, this.attributeId)
+    const dataValue = addressSpace.read(this.nodeId, this.attributeId)
 
-    if (!this.hasChanged(dv)) {
+    if (!this.hasChanged(dataValue)) {
       return false
     }
 
-    this.lastReportedValue = dv
+    this.lastReportedValue = dataValue
 
     if (this.monitoringMode !== MonitoringModeEnum.Reporting) {
       // Sampling mode tracks values but does not report them (Part 4 §5.12.2).
@@ -71,7 +71,7 @@ export class MonitoredItem {
 
     const notification = new MonitoredItemNotification()
     notification.clientHandle = this.clientHandle
-    notification.value = dv
+    notification.value = dataValue
 
     if (this.queue.length >= this.revisedQueueSize) {
       // Drop oldest (simplified: queueSize=1 in practice for most tests).

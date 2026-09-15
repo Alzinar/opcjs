@@ -17,7 +17,7 @@ Each facet has its own folder; each conformance unit has its own document.
 | [minimum-ua-2025-client-facet/](./minimum-ua-2025-client-facet/) | Minimum UA 2025 Client Facet | Minimum UA Client 2025 Profile | 0 / 2 ❌ | 1 ❌ |
 | [base-client-behaviour-facet/](./base-client-behaviour-facet/) | Base Client Behaviour Facet | Standard UA Client Profiles | 2 ✅ · 5 ❌ | — |
 | [core-2022-server-facet/](./core-2022-server-facet/) | Core 2022 Server Facet | Nano/Standard UA Server Profiles | 4 ✅ · 4 ⚠️ · 7 ❌ | 22 ❌ |
-| [embedded-datachange-subscription-2022-server-facet/](./embedded-datachange-subscription-2022-server-facet/) | Embedded DataChange Subscription 2022 Server Facet | Micro/Standard UA Server Profiles | 1 ✅ · 4 ⚠️ · 5 ❌ | — |
+| [embedded-datachange-subscription-2022-server-facet/](./embedded-datachange-subscription-2022-server-facet/) | Embedded DataChange Subscription 2022 Server Facet | Micro/Standard UA Server Profiles | 2 ✅ · 3 ⚠️ · 5 ❌ | — |
 
 ### Conformance Unit Detail
 

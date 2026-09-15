@@ -84,9 +84,10 @@ export class Subscription {
     public readonly subscriptionId: number,
     /** authenticationToken of the session that owns this subscription. */
     public readonly ownerAuthToken: string,
-    public readonly revisedPublishingInterval: number,
-    public readonly revisedMaxKeepAliveCount: number,
-    public readonly revisedLifetimeCount: number,
+    /** Revised publishingInterval (ms). Mutable — {@link modify} may re-arm the timer. */
+    public revisedPublishingInterval: number,
+    public revisedMaxKeepAliveCount: number,
+    public revisedLifetimeCount: number,
     public readonly maxNotificationsPerPublish: number,
     public publishingEnabled: boolean,
     public readonly priority: number,
@@ -110,6 +111,34 @@ export class Subscription {
     if (typeof (this.timer as { unref?: () => void })?.unref === 'function') {
       ;(this.timer as unknown as { unref: () => void }).unref()
     }
+  }
+
+  /** Stops the running publishing timer, if any, so it can be re-armed with a new interval. */
+  private stopTimer(): void {
+    if (this.timer === undefined) return
+    clearInterval(this.timer)
+    this.timer = undefined
+  }
+
+  /**
+   * Applies revised parameters from a ModifySubscription request and re-arms
+   * the publishing timer so the new `publishingInterval` takes effect
+   * immediately (Part 4 §5.14.3.1: "Changes to the Subscription settings
+   * shall be applied immediately"). The keep-alive and lifetime counters are
+   * reset since they are measured against the (possibly new) interval.
+   */
+  modify(revised: RevisedSubscriptionParameters): void {
+    if (this.disposed) return
+    this.revisedPublishingInterval = revised.publishingInterval
+    this.revisedMaxKeepAliveCount = revised.maxKeepAliveCount
+    this.revisedLifetimeCount = revised.lifetimeCount
+    this.keepAliveCounter = 0
+    this.lifetimeCounter = 0
+    this.stopTimer()
+    this.start()
+    this.logger.debug(
+      `Subscription ${this.subscriptionId} modified (publishingInterval=${revised.publishingInterval}ms)`,
+    )
   }
 
   /**
@@ -179,10 +208,10 @@ export class Subscription {
   enqueuePublishCallback(
     requestHandle: number,
     acknowledged: number[],
-    cb: PublishCallback,
+    publishCallback: PublishCallback,
   ): void {
     if (this.disposed) {
-      cb(this.buildStatusChangeResponse(requestHandle, StatusCode.BadSessionClosed))
+      publishCallback(this.buildStatusChangeResponse(requestHandle, StatusCode.BadSessionClosed))
       return
     }
     this.processAcknowledgements(acknowledged)
@@ -195,7 +224,7 @@ export class Subscription {
       if (response.responseHeader !== undefined) {
         response.responseHeader.requestHandle = requestHandle
       }
-      cb(response)
+      publishCallback(response)
     }
 
     if (this.hasPendingNotifications()) {
@@ -213,6 +242,15 @@ export class Subscription {
         this.retained.splice(i, 1)
       }
     }
+  }
+
+  /**
+   * Returns the retained NotificationMessage matching `sequenceNumber`, or
+   * `undefined` if it is no longer available (already acknowledged, never
+   * sent, or evicted from the retransmission queue). Part 4 §5.14.6.
+   */
+  republish(sequenceNumber: number): NotificationMessage | undefined {
+    return this.retained.find(m => m.sequenceNumber === sequenceNumber)
   }
 
   // ── Publishing tick (the heart of the subscription) ───────────────────
@@ -268,7 +306,7 @@ export class Subscription {
     return false
   }
 
-  private sendNotificationMessage(cb: PublishCallback): void {
+  private sendNotificationMessage(publishCallback: PublishCallback): void {
     const dcn = new DataChangeNotification()
     dcn.monitoredItems = []
     dcn.diagnosticInfos = []
@@ -291,19 +329,19 @@ export class Subscription {
     this.keepAliveCounter = 0
     this.lifetimeCounter = 0
 
-    cb(this.buildPublishResponse(msg))
+    publishCallback(this.buildPublishResponse(msg))
     this.logger.debug(
       `Sent NotificationMessage seq=${msg.sequenceNumber} items=${count}`,
     )
   }
 
-  private sendKeepAlive(cb: PublishCallback): void {
+  private sendKeepAlive(publishCallback: PublishCallback): void {
     const msg = new NotificationMessage()
     msg.sequenceNumber = this.nextSequenceNumber  // Keep-alive re-uses next seq (not yet assigned).
     msg.publishTime = new Date()
     msg.notificationData = []
     // Keep-alive messages MUST NOT consume a sequence number and MUST NOT be retained.
-    cb(this.buildPublishResponse(msg))
+    publishCallback(this.buildPublishResponse(msg))
     this.logger.debug(`Sent keep-alive on subscription ${this.subscriptionId}`)
   }
 
@@ -390,7 +428,7 @@ export function reviseSubscriptionParameters(args: {
     isFinite(args.publishingInterval) && args.publishingInterval > 0
       ? args.publishingInterval
       : 1000,
-    MIN_PUBLISHING_INTERVAL_MS,
+    MIN_PUBLISHING_INTERVAL_MS, // todo: should be passed by configuration
     MAX_PUBLISHING_INTERVAL_MS,
   )
   const maxKeepAliveCount = clamp(

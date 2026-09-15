@@ -6,4 +6,5 @@ argument-hint: 'Describe the bug or broken feature to fix'
 
 # OpcJs Fixer
 
-Invoke the `OpcJsFixer` custom agent as a subagent to handle the task, passing it the user's full description of the bug or broken feature verbatim. Report back the subagent's final result.
+Be sure to write a test that reproduces the bug or broken feature.
+Invoke the `OpcJsImplementer` custom agent as a subagent to handle the task, passing it the user's full description of the bug or broken feature verbatim. Report back the subagent's final result.

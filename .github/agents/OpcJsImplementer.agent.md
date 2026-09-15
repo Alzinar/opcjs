@@ -94,16 +94,15 @@ Fix any type errors introduced by the changes before declaring the feature compl
 Before handing back to the user, confirm each item:
 
 - [ ] Spec requirements quoted and understood
-- [ ] RefServer binary synced (if RefServer was changed)
 - [ ] Breaking changes explicitly listed (or "none")
 - [ ] Base package tests pass
 - [ ] Base package prepublish passes
 - [ ] Client package tests pass
 - [ ] Client package prepublish passes
-- [ ] Tests have been written for the implemented feature
+- [ ] Tests have been written for the implementation
 - [ ] Backlog updated
 - [ ] README updated
-- [ ] All three samples compile without errors
+- [ ] All samples compile without errors
 
 ## Summary
 Give a concise summary of the implementation that can be used as commit message or PR description, including any breaking changes.
