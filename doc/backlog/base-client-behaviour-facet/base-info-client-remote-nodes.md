@@ -2,7 +2,14 @@
 
 **Facet**: Base Client Behaviour Facet  
 **Type**: Required  
-**Status**: ❌ Not Implemented  
+**Status**: ✅ Implemented  
+
+## Implementation
+
+- `isRemoteNode(expandedNodeId)` (`packages/client/src/remoteNode.ts`) recognises an `ExpandedNodeId` with `serverIndex > 0` or a non-empty `namespaceUri` as referencing a Node on a different server.
+- `BrowseNodeResult.isRemote()` exposes this on browse results so callers can detect remote references without extra imports.
+- `resolveLocalNodeId(expandedNodeId)` returns the local `NodeId` for a local reference and throws a descriptive `RemoteNodeError` for a remote one, per the CU's "handle cases where the referenced server is not available gracefully" requirement.
+- `Client.browse(..., recursive: true)` skips (with a debug log) remote nodes when recursing, rather than silently mis-resolving them as local NodeIds. This client has no multi-server discovery registry; connecting to the referenced server requires pre-configuring a separate `Client` with that server's connection info, which the CU explicitly allows ("acceptable for the target server's connection information to be pre-configured on the client rather than discovered dynamically").
 
 ## Description
 

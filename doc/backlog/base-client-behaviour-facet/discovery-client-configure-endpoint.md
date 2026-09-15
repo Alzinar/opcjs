@@ -2,7 +2,12 @@
 
 **Facet**: Base Client Behaviour Facet  
 **Type**: Required  
-**Status**: ❌ Not Implemented  
+**Status**: ✅ Implemented  
+
+## Implementation
+
+- `Client.getEndpoints()` (`packages/client/src/client.ts`) opens a transient SecureChannel to the configured `endpointUrl` and issues a `GetEndpointsRequest` via the new `DiscoveryService` (`packages/client/src/services/discoveryService.ts`), returning the `EndpointDescription[]` for the caller to inspect and choose from.
+- `Client.connect(endpoint?: EndpointDescription)` accepts a pre-selected `EndpointDescription` (e.g. from `getEndpoints()` or a config file), using its `endpointUrl` directly and bypassing the internal endpoint round-trip. The existing constructor `endpointUrl` remains the default when no endpoint is passed.
 
 ## Description
 

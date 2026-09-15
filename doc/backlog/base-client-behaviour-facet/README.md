@@ -14,10 +14,10 @@ These behaviours can only be tested in a TestLab — they are best practice guid
 
 | Status | Document | Conformance Unit |
 |--------|----------|-----------------|
-| ❌ | [discovery-client-configure-endpoint.md](./discovery-client-configure-endpoint.md) | Discovery Client Configure Endpoint |
+| ✅ | [discovery-client-configure-endpoint.md](./discovery-client-configure-endpoint.md) | Discovery Client Configure Endpoint |
 | ✅ | [security-administration.md](./security-administration.md) | Security Administration |
-| ❌ | [security-certificate-administration.md](./security-certificate-administration.md) | Security Certificate Administration |
-| ❌ | [base-info-client-remote-nodes.md](./base-info-client-remote-nodes.md) | Base Info Client Remote Nodes |
+| ✅ | [security-certificate-administration.md](./security-certificate-administration.md) | Security Certificate Administration |
+| ✅ | [base-info-client-remote-nodes.md](./base-info-client-remote-nodes.md) | Base Info Client Remote Nodes |
 | ✅ | [session-client-auto-reconnect.md](./session-client-auto-reconnect.md) | Session Client Auto Reconnect |
-| ❌ | [subscription-client-multiple.md](./subscription-client-multiple.md) | Subscription Client Multiple |
-| ❌ | [subscription-client-publish-multiple.md](./subscription-client-publish-multiple.md) | Subscription Client Publish Multiple |
+| ✅ | [subscription-client-multiple.md](./subscription-client-multiple.md) | Subscription Client Multiple |
+| ✅ | [subscription-client-publish-multiple.md](./subscription-client-publish-multiple.md) | Subscription Client Publish Multiple |

@@ -38,9 +38,21 @@ Creates a new client instance. Does not connect until `connect()` is called.
 | `identity` | `UserIdentity` | Credentials used for `ActivateSession` |
 | `configuration` | `ConfigurationClient` | Application description, encoder/decoder, and security settings |
 
-### `client.connect(): Promise<void>`
+### `client.getEndpoints(): Promise<EndpointDescription[]>`
+
+Opens a transient SecureChannel to the configured `endpointUrl`, sends `GetEndpoints` (OPC UA Part 4 §5.4.4), and returns the advertised `EndpointDescription`s without creating a Session. Use this to let an operator or configuration pick a `SecurityPolicy`/`MessageSecurityMode` before calling `connect()` (Discovery Client Configure Endpoint conformance unit).
+
+```ts
+const endpoints = await client.getEndpoints()
+const chosen = endpoints.find(e => e.securityPolicyUri?.endsWith('#None'))
+await client.connect(chosen)
+```
+
+### `client.connect(endpoint?: EndpointDescription): Promise<void>`
 
 Opens the WebSocket transport, establishes a TCP/SecureChannel, creates an OPC UA session, and starts the keep-alive timer.
+
+When `endpoint` is provided (e.g. from `getEndpoints()` or a config file), its `endpointUrl` is used directly, bypassing the endpoint selection normally performed during connect. Omit it to use the `endpointUrl` passed to the `Client` constructor, as before.
 
 Reconnects automatically on channel drops (Session Auto Reconnect, OPC UA Part 4 §5.7.1):
 1. Attempts `ActivateSession` on the new channel to reuse the existing session.
@@ -87,6 +99,8 @@ Browses the `HierarchicalReferences` of a node. Set `recursive` to `true` to tra
 
 Continuation points are handled automatically: all pages are fetched and merged before the promise resolves.
 
+Each `BrowseNodeResult.isRemote()` reports whether the reference points to a Node on a different OPC UA server (`ExpandedNodeId.serverIndex > 0` or a `namespaceUri` set — Base Info Client Remote Nodes conformance unit). This client has no multi-server discovery registry, so recursive browse skips remote nodes rather than mis-resolving them as local; `resolveLocalNodeId()` (from `opcjs-client`) throws a `RemoteNodeError` if you attempt to resolve one directly. To access a remote Node, connect to its server with a separate, pre-configured `Client`.
+
 ### `client.callMethod(objectId, methodId, inputArguments?, options?): Promise<CallMethodResult>`
 
 Calls an OPC UA method.
@@ -104,9 +118,11 @@ const result = await client.callMethod(
 // result.diagnosticInfo — populated when returnDiagnostics > 0
 ```
 
-### `client.subscribe(ids, callback, options?): Promise<void>`
+### `client.subscribe(ids, callback, options?): Promise<number>`
 
-Creates an OPC UA subscription and monitored items, then starts the Publish loop.
+Creates an OPC UA subscription and monitored items, then starts (or joins) the Publish pipeline. Returns the server-assigned `subscriptionId`.
+
+Can be called more than once per session: each call creates an independent Subscription with its own `publishingInterval`/`priority` (Subscription Client Multiple conformance unit) — e.g. a fast subscription for high-priority data and a slow one for the rest. All Subscriptions on a session share a single Publish pipeline that keeps multiple `Publish` requests outstanding at once (default 2) so the server is never blocked waiting for the next request (Subscription Client Publish Multiple conformance unit).
 
 ```ts
 await client.subscribe(
@@ -117,6 +133,13 @@ await client.subscribe(
     }
   },
   { requestedPublishingInterval: 1000 },
+)
+
+// A second, independent subscription with a slower publishing interval.
+await client.subscribe(
+  [NodeId.newNumeric(0, 2259)],
+  (notifications) => { /* ... */ },
+  { requestedPublishingInterval: 5000, priority: 0 },
 )
 ```
 
@@ -170,5 +193,7 @@ config.securityConfiguration = {
 | `messageSecurityMode` | any | Required `MessageSecurityMode` |
 | `trustedCAs` | — | DER-encoded trusted CA certificates (reserved for future use) |
 | `unknownCertificatePolicy` | — | `'reject'` or `'trust'` for unverifiable server certificates (reserved for future use) |
+| `applicationInstanceCertificate` | — | DER-encoded site-specific ApplicationInstanceCertificate (Security Certificate Administration conformance unit). Sent proactively as `clientCertificate` on every `CreateSession`; also used as the OPC UA 1.0 fallback when a server rejects an uncertified session. |
+| `privateKey` | — | DER-encoded PKCS#8 private key matching `applicationInstanceCertificate` (reserved for future use until a signing security policy is implemented) |
 
 > **Security note:** `allowSecurityPolicyNone: true` (the default) allows cleartext communication. Set it to `false` once non-None security policies are available in this client implementation.

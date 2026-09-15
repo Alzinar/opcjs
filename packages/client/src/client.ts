@@ -27,6 +27,7 @@ import {
   ILogger,
   ServerStateEnum,
   type ServerStatusDataType,
+  type EndpointDescription,
 } from 'opcjs-base'
 
 import { SessionHandler } from './sessions/sessionHandler.js'
@@ -50,6 +51,8 @@ import type { RequestOptions } from './requestOptions.js'
 import { lastAssignedHandle, nextRequestHandle } from './services/serviceBase.js'
 import { NamespaceTable } from './namespaceTable.js'
 import type { SelectionList } from './selectionList.js'
+import { DiscoveryService } from './services/discoveryService.js'
+import { isRemoteNode } from './remoteNode.js'
 
 /** NodeId of Server_ServerStatus (ns=0, i=2256) — a cheap server-side read used for session keep-alive. */
 const SERVER_STATUS_NODE_ID = NodeId.newNumeric(0, 2256)
@@ -407,7 +410,50 @@ export class Client {
     return this.configuration.shutdownReconnectDelayMs
   }
 
-  async connect(): Promise<void> {
+  /**
+   * Retrieves the EndpointDescriptions supported by this client's configured
+   * `endpointUrl` (OPC UA Part 4, Section 5.4.4 — GetEndpoints Service).
+   *
+   * Implements the Discovery Client Configure Endpoint conformance unit: the caller
+   * can inspect the returned SecurityPolicy / MessageSecurityMode combinations and
+   * pick one to pass to `connect()` (as an `EndpointDescription`) instead of relying
+   * on the endpoint automatically selected during `CreateSession`.
+   *
+   * Opens and closes a temporary SecureChannel — no Session is created and any
+   * existing session/channel on this `Client` instance is left untouched.
+   *
+   * @example
+   * ```ts
+   * const endpoints = await client.getEndpoints()
+   * const chosen = endpoints.find(e => e.securityPolicyUri?.endsWith('#None'))
+   * await client.connect(chosen)
+   * ```
+   */
+  async getEndpoints(): Promise<EndpointDescription[]> {
+    const { ws, sc } = await this.openTransportAndChannel()
+    try {
+      const discoveryService = new DiscoveryService(sc)
+      return await discoveryService.getEndpoints(this.endpointUrl)
+    } finally {
+      sc.close()
+      ws.close()
+    }
+  }
+
+  /**
+   * Connects to the OPC UA server and establishes a Session.
+   *
+   * @param endpoint - Optional pre-selected `EndpointDescription` (e.g. obtained from
+   *   `getEndpoints()` or a configuration file). When provided, its `endpointUrl` is
+   *   used to open the SecureChannel, bypassing an internal `GetEndpoints` round-trip
+   *   (Discovery Client Configure Endpoint conformance unit — OPC UA Part 4, §5.4.3).
+   *   When omitted, the `endpointUrl` passed to the `Client` constructor is used, as before.
+   */
+  async connect(endpoint?: EndpointDescription): Promise<void> {
+    if (endpoint?.endpointUrl) {
+      this.endpointUrl = endpoint.endpointUrl
+    }
+
     const { ws, sc } = await this.openTransportAndChannel()
 
     this.secureChannel = sc
@@ -736,6 +782,16 @@ export class Client {
 
     if (recursive) {
       for (const ref of allReferences) {
+        if (isRemoteNode(ref.nodeId)) {
+          // Base Info Client Remote Nodes: this client has no multi-server registry and
+          // cannot browse a Node belonging to another server. Skip it rather than
+          // constructing a NodeId that silently drops the serverIndex/namespaceUri.
+          this.logger.debug(
+            `Skipping recursive browse of remote node ${ref.nodeId.toString()}; ` +
+            'pre-configure a separate Client for the target server to access it.',
+          )
+          continue
+        }
         const childNodeId = NodeId.newNumeric(
           ref.nodeId.nodeId.namespace,
           ref.nodeId.nodeId.identifier as number,
@@ -750,12 +806,25 @@ export class Client {
     return results;
   }
 
+  /**
+   * Creates a Subscription and MonitoredItems for `ids` (OPC UA Part 4, §5.13).
+   *
+   * Can be called multiple times on the same session to create independent
+   * Subscriptions, each with its own `publishingInterval`/`priority` (Subscription
+   * Client Multiple conformance unit). All Subscriptions on a session share a single
+   * Publish pipeline (Publish is a per-Session service, not per-Subscription).
+   *
+   * @returns The server-assigned `subscriptionId` for the newly created Subscription.
+   */
   async subscribe(
     ids: NodeId[],
     callback: (data: { id: NodeId; value: unknown }[]) => void,
     options?: SubscriptionOptions
-  ) {
-    this.subscriptionHandler?.subscribe(ids, callback, options);
+  ): Promise<number> {
+    if (!this.subscriptionHandler) {
+      throw new Error('Not connected: call connect() before subscribe()')
+    }
+    return this.subscriptionHandler.subscribe(ids, callback, options);
   }
 
   /**

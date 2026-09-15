@@ -1,18 +1,21 @@
 /**
- * Unit tests for the OPC UA 1.0 Security-None CreateSession cert fallback.
+ * Unit tests for CreateSession certificate handling.
  *
- * The conformance unit "Security None CreateSession ActivateSession 1.0"
- * (optional) requires that the client retries CreateSession with an
- * ApplicationInstanceCertificate when the server rejects the initial
- * (no-certificate) call with a certificate-related status code.
+ * Security Certificate Administration conformance unit (required): when
+ * `securityConfiguration.applicationInstanceCertificate` is configured, it is sent
+ * proactively as `clientCertificate` on every `CreateSession` call.
  *
- * These tests exercise `SessionHandler.createNewSession()` via the private
- * helper path, verifying:
- *   1. Happy path (no cert error): proceeds normally.
- *   2. Cert required + cert configured: retries with the certificate.
- *   3. Cert required + cert not configured: error propagates.
- *   4. All three trigger status codes fire the fallback.
- *   5. Non-cert errors propagate without retry.
+ * Security None CreateSession ActivateSession 1.0 conformance unit (optional): when
+ * no certificate is configured and the server rejects the uncertified request with a
+ * certificate-related status code, the error propagates (there is nothing to retry with).
+ *
+ * These tests exercise `SessionHandler.createNewSession()` via the private helper path, verifying:
+ *   1. Happy path (no cert configured, no error): proceeds normally with `null`.
+ *   2. Cert configured: sent proactively on the first (and only) CreateSession call.
+ *   3. Cert configured but still rejected: error propagates, no further retry.
+ *   4. Cert required + cert not configured: error propagates.
+ *   5. All three trigger status codes propagate identically when a cert is already configured.
+ *   6. Non-cert errors propagate without retry.
  */
 
 import { describe, expect, it, vi } from 'vitest'
@@ -119,7 +122,23 @@ describe('SessionHandler – OPC UA 1.0 cert fallback (createNewSession)', () =>
     expect(createSessionMock).toHaveBeenCalledWith(null)
   })
 
-  it('retries with cert when BadCertificateInvalid is returned and cert is configured', async () => {
+  it('sends the configured certificate proactively on the first CreateSession call', async () => {
+    const cert = new Uint8Array([0xde, 0xad, 0xbe, 0xef])
+    const handler = new SessionHandler(
+      makeChannel() as ReturnType<typeof makeChannel>,
+      makeConfig({ securityConfiguration: { applicationInstanceCertificate: cert } }),
+    )
+    const { createSessionMock } = injectSessionService(handler, [
+      { result: makeFakeSessionResult() },
+    ])
+
+    await handler.createNewSession(UserIdentity.newAnonymous())
+
+    expect(createSessionMock).toHaveBeenCalledTimes(1)
+    expect(createSessionMock).toHaveBeenCalledWith(cert)
+  })
+
+  it('propagates the error when a configured certificate is still rejected (no further retry)', async () => {
     const cert = new Uint8Array([0xde, 0xad, 0xbe, 0xef])
     const handler = new SessionHandler(
       makeChannel() as ReturnType<typeof makeChannel>,
@@ -127,14 +146,13 @@ describe('SessionHandler – OPC UA 1.0 cert fallback (createNewSession)', () =>
     )
     const { createSessionMock } = injectSessionService(handler, [
       { throws: new CertificateRequiredError(StatusCode.BadCertificateInvalid) },
-      { result: makeFakeSessionResult() },
     ])
 
-    await handler.createNewSession(UserIdentity.newAnonymous())
-
-    expect(createSessionMock).toHaveBeenCalledTimes(2)
-    expect(createSessionMock).toHaveBeenNthCalledWith(1, null)
-    expect(createSessionMock).toHaveBeenNthCalledWith(2, cert)
+    await expect(handler.createNewSession(UserIdentity.newAnonymous())).rejects.toBeInstanceOf(
+      CertificateRequiredError,
+    )
+    expect(createSessionMock).toHaveBeenCalledTimes(1)
+    expect(createSessionMock).toHaveBeenCalledWith(cert)
   })
 
   it('propagates CertificateRequiredError when no cert is configured', async () => {
@@ -164,7 +182,7 @@ describe('SessionHandler – OPC UA 1.0 cert fallback (createNewSession)', () =>
   })
 
   it.each([...CERTIFICATE_REQUIRED_STATUS_CODES])(
-    'triggers fallback for status code 0x%s',
+    'propagates status code 0x%s without retrying when a cert is already configured',
     async (code) => {
       const cert = new Uint8Array([0x01])
       const handler = new SessionHandler(
@@ -173,13 +191,13 @@ describe('SessionHandler – OPC UA 1.0 cert fallback (createNewSession)', () =>
       )
       const { createSessionMock } = injectSessionService(handler, [
         { throws: new CertificateRequiredError(code as number) },
-        { result: makeFakeSessionResult() },
       ])
 
-      await handler.createNewSession(UserIdentity.newAnonymous())
-
-      expect(createSessionMock).toHaveBeenCalledTimes(2)
-      expect(createSessionMock).toHaveBeenNthCalledWith(2, cert)
+      await expect(handler.createNewSession(UserIdentity.newAnonymous())).rejects.toBeInstanceOf(
+        CertificateRequiredError,
+      )
+      expect(createSessionMock).toHaveBeenCalledTimes(1)
+      expect(createSessionMock).toHaveBeenCalledWith(cert)
     },
   )
 })

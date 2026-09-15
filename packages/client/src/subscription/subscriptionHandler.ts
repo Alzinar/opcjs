@@ -4,6 +4,7 @@ import {
     ExpandedNodeId,
     getLogger,
     NodeId,
+    PublishResponse,
     StatusChangeNotification,
     StatusCode,
     SubscriptionAcknowledgement,
@@ -20,13 +21,31 @@ import { SubscriptionHandlerEntry } from './subscriptionHandlerEntry'
 const NODE_ID_DATA_CHANGE_NOTIFICATION = 811
 const NODE_ID_STATUS_CHANGE_NOTIFICATION = 818
 
+/**
+ * Default number of `Publish` requests kept outstanding on the server at all times
+ * (Subscription Client Publish Multiple conformance unit — OPC UA Part 4, §5.13.5).
+ */
+const DEFAULT_PUBLISH_PIPELINE_DEPTH = 2
+
 export class SubscriptionHandler {
     private logger = getLogger('SubscriptionHandler')
     private entries = new Array<SubscriptionHandlerEntry>()
     private nextHandle = 0
     private isRunning = false
-    /** Guards against multiple concurrent publish loops. */
-    private publishInFlight = false
+    /**
+     * Acknowledgements for notifications received but not yet confirmed to the server.
+     * Drained (and cleared) by the next outgoing Publish request, regardless of which
+     * pipeline worker sends it — Publish is a per-Session service, not per-Subscription
+     * (Subscription Client Multiple conformance unit).
+     */
+    private acknowledgementQueue: SubscriptionAcknowledgement[] = []
+    /**
+     * Incremented every time the publish pipeline (re)starts. Pipeline workers capture
+     * their starting generation and stop looping once it no longer matches, so stale
+     * workers from a previous run (e.g. before a `stop()` + `restartPublishLoop()` cycle)
+     * cannot resurrect and duplicate the pipeline.
+     */
+    private generation = 0
 
     /**
      * Optional callback invoked when the server announces a shutdown via a
@@ -58,7 +77,7 @@ export class SubscriptionHandler {
     }
 
     /**
-     * Stops the publish loop and detaches the reconnect callbacks.
+     * Stops the publish pipeline and detaches the reconnect callbacks.
      *
      * Call this during an explicit `Client.disconnect()`, before tearing down the
      * channel: closing the channel now rejects any in-flight Publish request, and
@@ -67,6 +86,7 @@ export class SubscriptionHandler {
      */
     stop(): void {
         this.isRunning = false
+        this.generation++
         this.onShutdown = undefined
         this.onPublishError = undefined
     }
@@ -82,25 +102,31 @@ export class SubscriptionHandler {
     }
 
     /**
-     * Restarts the publish loop if there are entries and the loop is not already running.
+     * Restarts the publish pipeline if there are entries and it is not already running.
      * Call this after `updateServices()` to resume notifications on a re-established channel
      * where the server-side subscriptions are still alive (session reactivation path).
      */
     restartPublishLoop(): void {
         if (this.isRunning || this.entries.length === 0) return
         this.isRunning = true
-        void this.publishLoop([])
+        this.startPublishPipeline()
     }
 
+    /**
+     * Creates a Subscription and MonitoredItems for `ids` (OPC UA Part 4, §5.13.2 / §5.14).
+     *
+     * Can be called more than once: each call creates an independent Subscription (its
+     * own server-assigned `subscriptionId`, `publishingInterval`, and `priority`) rather
+     * than throwing (Subscription Client Multiple conformance unit). All Subscriptions
+     * created on this handler share the single Publish pipeline started on the first call.
+     *
+     * @returns The server-assigned `subscriptionId` for the new Subscription.
+     */
     async subscribe(
-        ids: NodeId[], 
-        callback: (data: { id: NodeId; value: unknown }[]) => void, 
+        ids: NodeId[],
+        callback: (data: { id: NodeId; value: unknown }[]) => void,
         options?: SubscriptionOptions
-    ) {
-        if (this.entries.length > 0) {
-            throw new Error('Subscribing more than once is not implemented')
-        }
-
+    ): Promise<number> {
         const subscriptionId = await this.subscriptionService.createSubscription(options)
         const items = []
         for (const id of ids) {
@@ -110,47 +136,72 @@ export class SubscriptionHandler {
         }
         await this.monitoredItemService.createMonitoredItems(subscriptionId, items, options)
 
-        // Start the publish loop with no pending acknowledgements.
-        this.isRunning = true
-        void this.publishLoop([])
+        // Start the shared publish pipeline on the first subscription; later calls reuse it
+        // since Publish is a per-Session service, not per-Subscription.
+        if (!this.isRunning) {
+            this.isRunning = true
+            this.startPublishPipeline()
+        }
+
+        return subscriptionId
+    }
+
+    /**
+     * Launches `publishPipelineDepth` concurrent long-poll workers so the server always
+     * has multiple outstanding `Publish` requests to answer (Subscription Client Publish
+     * Multiple conformance unit — OPC UA Part 4, §5.13.5).
+     */
+    private startPublishPipeline(): void {
+        const myGeneration = ++this.generation
+        for (let i = 0; i < this.publishPipelineDepth; i++) {
+            void this.runPublishWorker(myGeneration)
+        }
+    }
+
+    /**
+     * One pipeline slot: repeatedly issues a `Publish` request and, as soon as the
+     * response arrives, immediately issues the next one — without waiting on the other
+     * concurrently-running workers — until the handler is stopped or superseded by a
+     * newer generation (see `startPublishPipeline`).
+     */
+    private async runPublishWorker(myGeneration: number): Promise<void> {
+        while (this.isRunning && this.generation === myGeneration) {
+            // Drain any acknowledgements accumulated by this or other workers so they are
+            // sent exactly once, on whichever Publish request goes out next.
+            const acknowledgements = this.acknowledgementQueue.splice(0, this.acknowledgementQueue.length)
+
+            let response: PublishResponse
+            try {
+                response = await this.subscriptionService.publish(acknowledgements)
+            } catch (err) {
+                // Only the first worker to observe the failure reports it; guard against
+                // duplicate onPublishError calls when multiple pipeline slots fail together.
+                if (!this.isRunning || this.generation !== myGeneration) return
+                // A closed channel isn't a real failure — it's expected on disconnect or
+                // reconnect, so it doesn't warrant an error-level log.
+                if (err instanceof ChannelClosedError) {
+                    this.logger.debug(`Publish loop stopped: ${err.message}`)
+                } else {
+                    this.logger.error(`Publish failed, stopping publish loop: ${err}`)
+                }
+                this.isRunning = false
+                this.onPublishError?.()
+                return
+            }
+
+            if (!this.isRunning || this.generation !== myGeneration) return
+            this.handlePublishResponse(response)
+        }
     }
 
     // https://reference.opcfoundation.org/Core/Part4/v105/docs/5.14.5
-    private async publishLoop(pendingAcknowledgements: SubscriptionAcknowledgement[]): Promise<void> {
-        if (!this.isRunning) return
-
-        // Prevent a second publish loop from running concurrently.  This can
-        // happen when routeFrames settles two responses back-to-back and each
-        // continuation attempts to start a new iteration.
-        if (this.publishInFlight) return
-        this.publishInFlight = true
-
-        let response
-        try {
-            response = await this.subscriptionService.publish(pendingAcknowledgements)
-        } catch (err) {
-            // A closed channel isn't a real failure — it's expected on disconnect or
-            // reconnect, so it doesn't warrant an error-level log.
-            if (err instanceof ChannelClosedError) {
-                this.logger.debug(`Publish loop stopped: ${err.message}`)
-            } else {
-                this.logger.error(`Publish failed, stopping publish loop: ${err}`)
-            }
-            this.isRunning = false
-            this.publishInFlight = false
-            this.onPublishError?.()
-            return
-        }
-        this.publishInFlight = false
-
-        const { subscriptionId, availableSequenceNumbers, moreNotifications, notificationMessage } = response
+    private handlePublishResponse(response: PublishResponse): void {
+        const { subscriptionId, availableSequenceNumbers, notificationMessage } = response
         const notificationDatas = notificationMessage?.notificationData ?? []
         const seqNumber = notificationMessage?.sequenceNumber
 
-        // Build acknowledgements for the next publish request.
         // Per spec: only acknowledge sequence numbers that are in availableSequenceNumbers
         // and only for real notification messages (not keep-alive, which have empty notificationData).
-        const nextAcknowledgements: SubscriptionAcknowledgement[] = []
         const isKeepAlive = notificationDatas.length === 0
 
         if (!isKeepAlive && seqNumber !== undefined) {
@@ -160,11 +211,12 @@ export class SubscriptionHandler {
                 const ack = new SubscriptionAcknowledgement()
                 ack.subscriptionId = subscriptionId
                 ack.sequenceNumber = seqNumber
-                nextAcknowledgements.push(ack)
+                this.acknowledgementQueue.push(ack)
             }
         }
 
-        // Dispatch notifications to registered callbacks.
+        // Dispatch notifications to registered callbacks, routed to the entries of the
+        // Subscription this PublishResponse belongs to (Subscription Client Multiple).
         for (const notificationData of notificationDatas) {
             const decodedData = notificationData.data
             const rawTypeId = notificationData.typeId
@@ -173,7 +225,9 @@ export class SubscriptionHandler {
             if (typeNodeId.namespace === 0 && typeNodeId.identifier === NODE_ID_DATA_CHANGE_NOTIFICATION) {
                 const dataChangeNotification = decodedData as DataChangeNotification
                 for (const item of dataChangeNotification.monitoredItems) {
-                    const entry = this.entries.find(e => e.handle === item.clientHandle)
+                    const entry = this.entries.find(
+                        e => e.subscriptionId === subscriptionId && e.handle === item.clientHandle,
+                    )
                     entry?.callback([{ id: entry.id, value: item.value.value?.value }])
                 }
             } else if (typeNodeId.namespace === 0 && typeNodeId.identifier === NODE_ID_STATUS_CHANGE_NOTIFICATION) {
@@ -200,19 +254,11 @@ export class SubscriptionHandler {
                 )
             }
         }
-
-        // Per spec: if moreNotifications is true the server has more queued data — re-publish immediately
-        // without delay so the server's queue drains before its lifetime counter expires.
-        // Otherwise, schedule the next publish after a short yield to avoid a tight synchronous loop.
-        if (moreNotifications) {
-            void this.publishLoop(nextAcknowledgements)
-        } else {
-            setTimeout(() => void this.publishLoop(nextAcknowledgements), 0)
-        }
     }
 
     constructor(
         private subscriptionService: SubscriptionService,
         private monitoredItemService: MonitoredItemService,
+        private readonly publishPipelineDepth: number = DEFAULT_PUBLISH_PIPELINE_DEPTH,
     ) {}
 }

@@ -76,6 +76,20 @@
 
 ---
 
+## F. Base Client Behaviour Facet — Required Conformance Units
+
+| Done | Conformance Unit | Status | Notes |
+|------|-----------------|--------|-------|
+| ✅ | Discovery Client Configure Endpoint | Done | `Client.getEndpoints()` queries `GetEndpoints` via the new `DiscoveryService`; `Client.connect(endpoint?)` accepts a pre-selected `EndpointDescription` to bypass it. |
+| ✅ | Security Administration | Done | See Core 2022 Client Facet — same implementation. |
+| ✅ | Security Certificate Administration | Done | `securityConfiguration.applicationInstanceCertificate` is now sent proactively as `clientCertificate` on every `CreateSession`; new `privateKey` field stores the matching key. |
+| ✅ | Base Info Client Remote Nodes | Done | `isRemoteNode()` / `RemoteNodeError` / `resolveLocalNodeId()` in `remoteNode.ts`; `BrowseNodeResult.isRemote()`; recursive `browse()` skips remote nodes instead of mis-resolving them. |
+| ✅ | Session Client Auto Reconnect | Done | See Core 2022 Client Facet — same implementation. |
+| ✅ | Subscription Client Multiple | Done | `SubscriptionHandler.subscribe()` creates independent Subscriptions instead of throwing on a second call; notifications routed by `subscriptionId`. |
+| ✅ | Subscription Client Publish Multiple | Done | `SubscriptionHandler` runs a concurrent Publish pipeline (default depth 2) instead of a single in-flight request. |
+
+---
+
 ## Prioritised Backlog
 
 ### P0 — Blocking required conformance units (must be implemented)

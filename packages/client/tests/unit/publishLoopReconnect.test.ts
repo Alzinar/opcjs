@@ -91,6 +91,7 @@ describe('SubscriptionHandler – publish error callback', () => {
     const handler = new SubscriptionHandler(
       { createSubscription: vi.fn().mockResolvedValue(1), publish } as unknown as ConstructorParameters<typeof SubscriptionHandler>[0],
       { createMonitoredItems: vi.fn().mockResolvedValue(undefined) } as unknown as ConstructorParameters<typeof SubscriptionHandler>[1],
+      1,
     )
 
     const onPublishError = vi.fn()
@@ -107,6 +108,7 @@ describe('SubscriptionHandler – publish error callback', () => {
     const handler = new SubscriptionHandler(
       { createSubscription: vi.fn().mockResolvedValue(1), publish } as unknown as ConstructorParameters<typeof SubscriptionHandler>[0],
       { createMonitoredItems: vi.fn().mockResolvedValue(undefined) } as unknown as ConstructorParameters<typeof SubscriptionHandler>[1],
+      1,
     )
 
     expect(handler.hasEntries()).toBe(false)
@@ -128,6 +130,7 @@ describe('SubscriptionHandler – publish error callback', () => {
     const handler = new SubscriptionHandler(
       { createSubscription: vi.fn().mockResolvedValue(1), publish } as unknown as ConstructorParameters<typeof SubscriptionHandler>[0],
       { createMonitoredItems: vi.fn().mockResolvedValue(undefined) } as unknown as ConstructorParameters<typeof SubscriptionHandler>[1],
+      1,
     )
 
     const onPublishError = vi.fn()
@@ -162,6 +165,7 @@ describe('SubscriptionHandler – publish error callback', () => {
     const handler = new SubscriptionHandler(
       { createSubscription: vi.fn().mockResolvedValue(1), publish } as unknown as ConstructorParameters<typeof SubscriptionHandler>[0],
       { createMonitoredItems: vi.fn().mockResolvedValue(undefined) } as unknown as ConstructorParameters<typeof SubscriptionHandler>[1],
+      1,
     )
 
     await handler.subscribe([NodeId.newNumeric(0, 1)], vi.fn())

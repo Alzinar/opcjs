@@ -2,7 +2,14 @@
 
 **Facet**: Base Client Behaviour Facet  
 **Type**: Required  
-**Status**: ❌ Not Implemented  
+**Status**: ✅ Implemented  
+
+## Implementation
+
+- `SubscriptionHandler.subscribe()` (`packages/client/src/subscription/subscriptionHandler.ts`) no longer throws on a second call — each call creates an independent Subscription (its own server-assigned `subscriptionId`, `publishingInterval`, `priority` via `SubscriptionOptions`) and returns the `subscriptionId`.
+- Incoming `PublishResponse` notifications are routed to the correct Subscription's monitored-item entries by matching `subscriptionId`, so each subscription's callbacks only receive its own data.
+- All Subscriptions created on a session share the single Publish pipeline (Publish is a per-Session service per OPC UA Part 4 §5.13.5, not per-Subscription) — see [Subscription Client Publish Multiple](./subscription-client-publish-multiple.md) for the pipeline itself.
+- Covered by `packages/client/tests/unit/multipleSubscriptions.test.ts`.
 
 ## Description
 

@@ -10,31 +10,31 @@ export class SessionHandler {
     private logger = getLogger("sessions.SessionHandler");
 
     async createNewSession(identity:UserIdentity) : Promise<Session>{
-        // OPC UA 1.0 fallback: first attempt without a client certificate (SecurityPolicy None
-        // default). If the server signals that a certificate is required, retry once with the
-        // applicationInstanceCertificate from the security configuration (if present).
+        // Security Certificate Administration: when a site-specific ApplicationInstanceCertificate
+        // is configured, send it proactively on the first CreateSession attempt instead of waiting
+        // for the server to reject an uncertified request. When no certificate is configured, fall
+        // back to the OPC UA 1.0 compatibility path: attempt without a certificate, and only if the
+        // server signals that one is required, surface a clear error (there is nothing to retry with).
+        const configuredCert = this.configuration.securityConfiguration?.applicationInstanceCertificate
         let sessionResult: Awaited<ReturnType<SessionService['createSession']>>
         try {
-            sessionResult = await this.sessionServices.createSession(null)
+            sessionResult = await this.sessionServices.createSession(configuredCert ?? null)
         } catch (err) {
             if (err instanceof CertificateRequiredError) {
-                const fallbackCert = this.configuration.securityConfiguration?.applicationInstanceCertificate
-                if (fallbackCert) {
-                    this.logger.info(
-                        'Server requires a client certificate (OPC UA 1.0 fallback); ' +
-                        'retrying CreateSession with applicationInstanceCertificate.',
-                    )
-                    sessionResult = await this.sessionServices.createSession(fallbackCert)
-                } else {
+                if (configuredCert) {
+                    // A certificate was already sent and still rejected; no further fallback is possible.
                     this.logger.warn(
-                        'Server requires a client certificate but no applicationInstanceCertificate ' +
-                        'is configured in securityConfiguration. Cannot complete the 1.0 fallback.',
+                        'Server rejected CreateSession despite the configured applicationInstanceCertificate.',
                     )
                     throw err
                 }
-            } else {
+                this.logger.warn(
+                    'Server requires a client certificate but no applicationInstanceCertificate ' +
+                    'is configured in securityConfiguration. Cannot complete the 1.0 fallback.',
+                )
                 throw err
             }
+            throw err
         }
 
         this.sessionServices = this.sessionServices.recreate(sessionResult.authToken)

@@ -91,17 +91,33 @@ export type SecurityConfiguration = {
   unknownCertificatePolicy?: UnknownCertificatePolicy
 
   /**
-   * DER-encoded X.509 ApplicationInstanceCertificate for this client.
+   * DER-encoded X.509 ApplicationInstanceCertificate for this client
+   * (Security Certificate Administration conformance unit — OPC UA Part 6, §6.2).
    *
-   * When set, this certificate is used in a OPC UA 1.0 compatibility fallback:
-   * if `CreateSession` with no client certificate is rejected by the server with
-   * a certificate-related status code (`BadCertificateInvalid`,
-   * `BadSecurityChecksFailed`, or `BadNoValidCertificates`), the `CreateSession`
-   * is automatically retried with this certificate in the `clientCertificate`
-   * field (OPC UA Part 4, SecurityPolicy None – CreateSession/ActivateSession 1.0
-   * optional conformance unit).
+   * When set, this certificate is sent proactively as the `clientCertificate` on
+   * every `CreateSession` request, allowing a site administrator to replace the
+   * client's default (or absent) identity with a site-issued certificate.
    *
-   * Without this field the fallback is disabled and the error propagates as-is.
+   * It is also used as an OPC UA 1.0 compatibility fallback for servers that
+   * reject an uncertified `CreateSession`: if none is configured and the server
+   * responds with a certificate-related status code (`BadCertificateInvalid`,
+   * `BadSecurityChecksFailed`, or `BadNoValidCertificates`), the error propagates
+   * to the caller since there is no certificate available to send.
    */
   applicationInstanceCertificate?: Uint8Array
+
+  /**
+   * DER-encoded PKCS#8 private key matching `applicationInstanceCertificate`
+   * (Security Certificate Administration conformance unit).
+   *
+   * Stored alongside the certificate so both halves of the site-issued
+   * key pair are available together in the client's certificate store.
+   *
+   * @note Reserved for future use. This client only supports SecurityPolicy
+   *       None, which does not sign requests, so the private key is not yet
+   *       used to compute `ActivateSessionRequest.clientSignature` /
+   *       `userTokenSignature`. It will be used once non-None security
+   *       policies are implemented.
+   */
+  privateKey?: Uint8Array
 }
