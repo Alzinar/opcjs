@@ -128,7 +128,7 @@ Each facet has its own folder; each conformance unit has its own document.
 | ❌ | [Address Space Atomicity](./core-2022-server-facet/address-space-atomicity.md) |
 | ⚠️ | [Address Space Base](./core-2022-server-facet/address-space-base.md) |
 | ❌ | [Address Space Full Array Only](./core-2022-server-facet/address-space-full-array-only.md) |
-| ⚠️ | [Attribute Read](./core-2022-server-facet/attribute-read.md) |
+| ✅ | [Attribute Read](./core-2022-server-facet/attribute-read.md) |
 | ⚠️ | [Base Info Core Structure 2](./core-2022-server-facet/base-info-core-structure-2.md) |
 | ❌ | [Base Info Server Capabilities 2](./core-2022-server-facet/base-info-server-capabilities-2.md) |
 | ✅ | [Discovery Find Servers Self](./core-2022-server-facet/discovery-find-servers-self.md) |

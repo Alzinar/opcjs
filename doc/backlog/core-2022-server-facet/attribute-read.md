@@ -2,7 +2,7 @@
 
 **Facet**: Core 2022 Server Facet  
 **Type**: Required  
-**Status**: ⚠️ Partially Implemented  
+**Status**: ✅ Implemented  
 
 ## Description
 
@@ -28,10 +28,9 @@ The server must support the `Read` Service to read one or more Attributes of one
 ## Implementation
 
 **Files**:
-- `packages/server/src/services/attributeService.ts` — `read()` handles `ReadRequest`, applies `timestampsToReturn` (`Source`/`Server`/`Both`/`Neither`)
-- `packages/server/src/addressSpace/node.ts` — per-node attribute map backing the reads
+- `packages/server/src/services/attributeService.ts` — `read()` handles `ReadRequest`, applies `timestampsToReturn` (`Source`/`Server`/`Both`/`Neither`), `IndexRange` (array/string/ByteString slicing, `Bad_IndexRangeInvalid`/`Bad_IndexRangeNoData`), and `maxAge` validation (`Bad_MaxAgeInvalid` for negative values; otherwise always returns the current value, satisfying the "best effort" allowance)
+- `packages/server/src/addressSpace/node.ts` — per-node attribute map backing the reads, returns `Bad_AttributeIdInvalid` for undefined attributes
+- `packages/base/src/types/numericRange.ts` — `NumericRange` parser for the `IndexRange` grammar (OPC 10000-4 §7.27)
 
-**Not yet implemented**:
-- `IndexRange` support (array-slice reads) — always returns the full value
-- `maxAge` — explicitly ignored, always returns a live value
-- `Bad_IndexRangeNoData` is never returned since `IndexRange` is not evaluated
+**Tests**: `packages/server/tests/serviceDispatcher.test.ts` — `AttributeService – IndexRange` and `AttributeService – maxAge` suites
+

@@ -23,6 +23,8 @@ export { NodeIdType, NodeId } from './types/nodeId.js';
 export { QualifiedName } from './types/qualifiedName.js';
 export { Variant } from './types/variant.js';
 export type { VariantValue, VariantArrayValue } from './types/variant.js';
+export { NumericRange } from './types/numericRange.js';
+export type { NumericRangeDimension } from './types/numericRange.js';
 export { XmlElement } from './types/xmlElement.js';
 export type { UaBoolean, UaSbyte, UaByte, UaInt16, UaUint16, UaInt32, UaUint32, UaInt64, UaUint64, UaFloat, UaDouble, UaString, UaDateTime, UaGuid, UaByteString, UaPrimitive } from './types/primitives.js';
 export { uaSbyte, uaByte, uaInt16, uaUint16, uaInt32, uaUint32, uaInt64, uaUint64, uaFloat, uaDouble, uaGuid } from './types/primitives.js';

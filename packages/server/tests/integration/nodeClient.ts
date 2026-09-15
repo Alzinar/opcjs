@@ -225,19 +225,23 @@ export class NodeClient {
    * Reads the Value attribute of one or more nodes.
    * Returns an array of `DataValue` (one per nodeId).
    */
-  async read(nodeIds: NodeId[], timestampsToReturn = TimestampsToReturnEnum.Source): Promise<DataValue[]> {
+  async read(
+    nodeIds: NodeId[],
+    timestampsToReturn = TimestampsToReturnEnum.Source,
+    opts?: { indexRange?: string; maxAge?: number },
+  ): Promise<DataValue[]> {
     const nodesToRead = nodeIds.map(nid => {
       const rvi = new ReadValueId()
       rvi.nodeId = nid
       rvi.attributeId = 13 // Value
-      rvi.indexRange = ''
+      rvi.indexRange = opts?.indexRange ?? ''
       rvi.dataEncoding = new QualifiedName(0, '')
       return rvi
     })
 
     const req = new ReadRequest()
     req.requestHeader = makeRequestHeader(this.authToken)
-    req.maxAge = 0
+    req.maxAge = opts?.maxAge ?? 0
     req.timestampsToReturn = timestampsToReturn
     req.nodesToRead = nodesToRead
 

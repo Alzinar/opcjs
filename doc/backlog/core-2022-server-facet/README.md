@@ -36,7 +36,7 @@ A server claiming conformance to this facet must also conform to all **mandatory
 | ❌ | [address-space-atomicity.md](./address-space-atomicity.md) | Address Space Atomicity |
 | ⚠️ | [address-space-base.md](./address-space-base.md) | Address Space Base |
 | ❌ | [address-space-full-array-only.md](./address-space-full-array-only.md) | Address Space Full Array Only |
-| ⚠️ | [attribute-read.md](./attribute-read.md) | Attribute Read |
+| ✅ | [attribute-read.md](./attribute-read.md) | Attribute Read |
 | ⚠️ | [base-info-core-structure-2.md](./base-info-core-structure-2.md) | Base Info Core Structure 2 |
 | ❌ | [base-info-server-capabilities-2.md](./base-info-server-capabilities-2.md) | Base Info Server Capabilities 2 |
 | ✅ | [discovery-find-servers-self.md](./discovery-find-servers-self.md) | Discovery Find Servers Self |
@@ -80,7 +80,7 @@ A server claiming conformance to this facet must also conform to all **mandatory
 
 | Total | Implemented | Partial | Missing |
 |-------|-------------|---------|---------|
-| Required: 15 | 4 | 4 | 7 |
+| Required: 15 | 5 | 3 | 7 |
 | Optional: 22 | 0 | 0 | 22 |
 
 ## Implementation Notes
@@ -89,7 +89,7 @@ A server claiming conformance to this facet must also conform to all **mandatory
   - `services/discoveryService.ts` — `GetEndpoints` / `FindServers` (SecurityPolicy None, anonymous token policy, single WS endpoint).
   - `services/sessionService.ts` + `sessions/sessionManager.ts` — `CreateSession` / `ActivateSession` / `CloseSession`, timeout scheduling, channel binding.
   - `services/serviceDispatcher.ts` — enforces Session General Service Behaviour (authentication-token checks, `requestHandle` echo) but does not yet honour `timeoutHint`.
-  - `services/attributeService.ts` — `Read` with `timestampsToReturn`, but no `IndexRange` or `maxAge` support.
+  - `services/attributeService.ts` — `Read` with `timestampsToReturn`, `IndexRange`, and `maxAge` support.
   - `addressSpace/addressSpace.ts` + `addressSpace/node.ts` — minimal in-memory address space with `Object`/`Variable` NodeClasses and the four standard `Server` nodes; no `References`, no other NodeClasses, no `ServerCapabilities` object, no `Root`/`Objects` entry points.
 - The View Service Set (`Browse`, `BrowseNext`, `TranslateBrowsePathsToNodeIds`, `RegisterNodes`/`UnregisterNodes`) is entirely unimplemented — `serviceDispatcher.ts` has no handlers for these requests.
 - No `Write` service exists, which blocks all Attribute-Write optional CUs.

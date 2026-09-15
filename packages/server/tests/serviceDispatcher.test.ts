@@ -22,6 +22,8 @@ import {
   ServiceFault,
   SignatureData,
   StatusCode,
+  Variant,
+  uaInt32,
 } from 'opcjs-base'
 
 import { StubAddressSpace } from '../src/addressSpace/stubAddressSpace.js'
@@ -463,5 +465,157 @@ describe('AttributeService', () => {
     const res = svc.read(req, session)
     // The server does NOT substitute its own timestamp — that is the address space's job.
     expect(res.results[0].sourceTimestamp).toBeUndefined()
+  })
+})
+
+// ── AttributeService – IndexRange & maxAge ──────────────────────────────────
+
+function makeTestSession() {
+  return {
+    sessionId: new NodeId(0, 1),
+    authenticationToken: new NodeId(0, 2),
+    serverNonce: new Uint8Array(32),
+    revisedTimeoutMs: 60_000,
+    boundChannelId: 1,
+    isActivated: true,
+    createdAt: new Date(),
+    lastActivityAt: new Date(),
+  }
+}
+
+function makeReadRequest(indexRange: string | null, maxAge = 0): ReadRequest {
+  const item = new ReadValueId()
+  item.nodeId = new NodeId(0, 1)
+  item.attributeId = 13
+  item.indexRange = indexRange
+  item.dataEncoding = new QualifiedName(0, '')
+
+  const req = new ReadRequest()
+  req.requestHeader = makeRequestHeader()
+  req.maxAge = maxAge
+  req.timestampsToReturn = 3 // Neither
+  req.nodesToRead = [item]
+  return req
+}
+
+describe('AttributeService – IndexRange', () => {
+  it('slices an array with a bounded range', () => {
+    const addressSpace = new StubAddressSpace()
+    vi.spyOn(addressSpace, 'read').mockReturnValue(
+      new DataValue(Variant.newFrom([uaInt32(2), uaInt32(33), uaInt32(12), uaInt32(0), uaInt32(99)]), StatusCode.Good),
+    )
+    const svc = new AttributeService(addressSpace)
+
+    const res = svc.read(makeReadRequest('0:2'), makeTestSession())
+    expect(res.results[0].statusCode).toBe(StatusCode.Good)
+    expect(res.results[0].value?.value).toEqual([2, 33, 12])
+  })
+
+  it('clamps an out-of-bounds upper index (partial result, no error)', () => {
+    const addressSpace = new StubAddressSpace()
+    vi.spyOn(addressSpace, 'read').mockReturnValue(
+      new DataValue(Variant.newFrom([uaInt32(2), uaInt32(33), uaInt32(12), uaInt32(0), uaInt32(99)]), StatusCode.Good),
+    )
+    const svc = new AttributeService(addressSpace)
+
+    const res = svc.read(makeReadRequest('3:7'), makeTestSession())
+    expect(res.results[0].statusCode).toBe(StatusCode.Good)
+    expect(res.results[0].value?.value).toEqual([0, 99])
+  })
+
+  it('returns Bad_IndexRangeNoData when the lower bound is out of range', () => {
+    const addressSpace = new StubAddressSpace()
+    vi.spyOn(addressSpace, 'read').mockReturnValue(
+      new DataValue(Variant.newFrom([uaInt32(2), uaInt32(33), uaInt32(12), uaInt32(0), uaInt32(99)]), StatusCode.Good),
+    )
+    const svc = new AttributeService(addressSpace)
+
+    const res = svc.read(makeReadRequest('7:9'), makeTestSession())
+    expect(res.results[0].statusCode).toBe(StatusCode.BadIndexRangeNoData)
+  })
+
+  it('returns Bad_IndexRangeInvalid for malformed syntax', () => {
+    const addressSpace = new StubAddressSpace()
+    vi.spyOn(addressSpace, 'read').mockReturnValue(
+      new DataValue(Variant.newFrom([uaInt32(1), uaInt32(2)]), StatusCode.Good),
+    )
+    const svc = new AttributeService(addressSpace)
+
+    const res = svc.read(makeReadRequest('7:5'), makeTestSession())
+    expect(res.results[0].statusCode).toBe(StatusCode.BadIndexRangeInvalid)
+  })
+
+  it('slices a substring out of a scalar String value', () => {
+    const addressSpace = new StubAddressSpace()
+    vi.spyOn(addressSpace, 'read').mockReturnValue(
+      new DataValue(Variant.newFrom('TestString'), StatusCode.Good),
+    )
+    const svc = new AttributeService(addressSpace)
+
+    const res = svc.read(makeReadRequest('0:3'), makeTestSession())
+    expect(res.results[0].statusCode).toBe(StatusCode.Good)
+    expect(res.results[0].value?.value).toBe('Test')
+  })
+
+  it('returns Bad_IndexRangeNoData for a range applied to a non-array/non-string scalar', () => {
+    const addressSpace = new StubAddressSpace()
+    vi.spyOn(addressSpace, 'read').mockReturnValue(
+      new DataValue(Variant.newFrom(uaInt32(42)), StatusCode.Good),
+    )
+    const svc = new AttributeService(addressSpace)
+
+    const res = svc.read(makeReadRequest('0'), makeTestSession())
+    expect(res.results[0].statusCode).toBe(StatusCode.BadIndexRangeNoData)
+  })
+
+  it('leaves an existing error status untouched regardless of indexRange', () => {
+    const addressSpace = new StubAddressSpace() // returns BadNodeIdUnknown
+    const svc = new AttributeService(addressSpace)
+
+    const res = svc.read(makeReadRequest('0:1'), makeTestSession())
+    expect(res.results[0].statusCode).toBe(StatusCode.BadNodeIdUnknown)
+  })
+
+  it('ignores an empty indexRange (full value returned)', () => {
+    const addressSpace = new StubAddressSpace()
+    vi.spyOn(addressSpace, 'read').mockReturnValue(
+      new DataValue(Variant.newFrom([uaInt32(1), uaInt32(2)]), StatusCode.Good),
+    )
+    const svc = new AttributeService(addressSpace)
+
+    const res = svc.read(makeReadRequest(''), makeTestSession())
+    expect(res.results[0].statusCode).toBe(StatusCode.Good)
+    expect(res.results[0].value?.value).toEqual([1, 2])
+  })
+})
+
+describe('AttributeService – maxAge', () => {
+  it('rejects a negative maxAge with Bad_MaxAgeInvalid', () => {
+    const addressSpace = new StubAddressSpace()
+    const svc = new AttributeService(addressSpace)
+
+    const res = svc.read(makeReadRequest(null, -1), makeTestSession())
+    expect(res.responseHeader?.serviceResult).toBe(StatusCode.BadMaxAgeInvalid)
+    expect(res.results).toHaveLength(0)
+  })
+
+  it('accepts maxAge = 0 (always live value)', () => {
+    const addressSpace = new StubAddressSpace()
+    vi.spyOn(addressSpace, 'read').mockReturnValue(new DataValue(Variant.newFrom(uaInt32(1)), StatusCode.Good))
+    const svc = new AttributeService(addressSpace)
+
+    const res = svc.read(makeReadRequest(null, 0), makeTestSession())
+    expect(res.responseHeader?.serviceResult).toBe(StatusCode.Good)
+    expect(res.results[0].statusCode).toBe(StatusCode.Good)
+  })
+
+  it('accepts a positive maxAge (best-effort current value returned)', () => {
+    const addressSpace = new StubAddressSpace()
+    vi.spyOn(addressSpace, 'read').mockReturnValue(new DataValue(Variant.newFrom(uaInt32(1)), StatusCode.Good))
+    const svc = new AttributeService(addressSpace)
+
+    const res = svc.read(makeReadRequest(null, 5000), makeTestSession())
+    expect(res.responseHeader?.serviceResult).toBe(StatusCode.Good)
+    expect(res.results[0].statusCode).toBe(StatusCode.Good)
   })
 })
