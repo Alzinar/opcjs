@@ -138,4 +138,17 @@ export const CustomIds = {
   TrafficLightDemoVariable: 25,
   TrafficLightValueAsTextProperty: 26,
   DefaultInstanceBrowseNameProperty: 27,
+  // Embedded DataChange Subscription 2022 Server Facet: ServerCapabilities /
+  // OperationLimits subscription-related variables (Part 5 §6.3.2 / §6.3.11
+  // mark these Optional and vendor-configured; no fixed ns=0 NodeId to reuse).
+  ServerCapabilities_MaxSubscriptions: 28,
+  ServerCapabilities_MaxMonitoredItems: 29,
+  ServerCapabilities_MaxSubscriptionsPerSession: 30,
+  ServerCapabilities_MaxMonitoredItemsPerSubscription: 31,
+  OperationLimits_MaxMonitoredItemsPerCall: 32,
+  ServerCapabilities_AggregateFunctions: 33,
+  ServerCapabilities_MaxMonitoredItemsQueueSize: 34,
+  Server_ServerDiagnostics: 35,
+  ServerDiagnostics_EnabledFlag: 36,
+  ServerDiagnostics_SamplingIntervalDiagnosticsArray: 37,
 } as const

@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest'
 
 import {
+  DataValue,
   NodeId,
+  SamplingIntervalDiagnosticsDataType,
   Variant,
   StatusCode,
   uaInt32,
@@ -15,6 +17,7 @@ const BUILTIN_LOCALIZED_TEXT = 21
 
 import { AddressSpace } from '../src/addressSpace/addressSpace.js'
 import { AttributeId } from '../src/addressSpace/node.js'
+import { CustomIds } from '../src/addressSpace/wellKnownIds.js'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -133,5 +136,89 @@ describe('AddressSpace – addVariable', () => {
     node.setValue(Variant.newFrom(uaDouble(99.9)))
     const dv = as.read(nodeId, AttributeId.Value)
     expect(dv.value?.value).toBe(99.9)
+  })
+})
+
+// ── Embedded DataChange Subscription 2022 Server Facet ───────────────────────
+
+describe('AddressSpace – Base Info Server Capabilities Subscriptions', () => {
+  it('exposes MaxSubscriptions, MaxMonitoredItems, MaxSubscriptionsPerSession, MaxMonitoredItemsPerSubscription and MaxMonitoredItemsQueueSize', () => {
+    const as = new AddressSpace()
+    for (const id of [
+      CustomIds.ServerCapabilities_MaxSubscriptions,
+      CustomIds.ServerCapabilities_MaxMonitoredItems,
+      CustomIds.ServerCapabilities_MaxSubscriptionsPerSession,
+      CustomIds.ServerCapabilities_MaxMonitoredItemsPerSubscription,
+      CustomIds.ServerCapabilities_MaxMonitoredItemsQueueSize,
+    ]) {
+      const dv = as.read(NodeId.newNumeric(1, id), AttributeId.Value)
+      expect(dv.statusCode).toBe(StatusCode.Good)
+      expect(dv.value?.value).toBeGreaterThan(0)
+    }
+  })
+
+  it('exposes MaxMonitoredItemsPerCall under OperationLimits', () => {
+    const as = new AddressSpace()
+    const dv = as.read(NodeId.newNumeric(1, CustomIds.OperationLimits_MaxMonitoredItemsPerCall), AttributeId.Value)
+    expect(dv.statusCode).toBe(StatusCode.Good)
+    expect(dv.value?.value).toBeGreaterThan(0)
+  })
+
+  it('exposes an AggregateFunctions folder', () => {
+    const as = new AddressSpace()
+    const dv = as.read(NodeId.newNumeric(1, CustomIds.ServerCapabilities_AggregateFunctions), AttributeId.NodeClass)
+    expect(dv.statusCode).toBe(StatusCode.Good)
+  })
+})
+
+describe('AddressSpace – Base Info Fixed SamplingInterval', () => {
+  it('SamplingIntervalDiagnosticsArray reads as empty until wired', () => {
+    const as = new AddressSpace()
+    const dv = as.read(
+      NodeId.newNumeric(1, CustomIds.ServerDiagnostics_SamplingIntervalDiagnosticsArray),
+      AttributeId.Value,
+    )
+    expect(dv.statusCode).toBe(StatusCode.Good)
+    expect(dv.value?.value).toEqual([])
+  })
+
+  it('reads as empty while EnabledFlag is false, even once wired to live data', () => {
+    const as = new AddressSpace()
+    const diag = new SamplingIntervalDiagnosticsDataType()
+    diag.samplingInterval = 100
+    diag.monitoredItemCount = 2
+    diag.maxMonitoredItemCount = 2
+    diag.disabledMonitoredItemCount = 0
+    as.wireSubscriptionDiagnostics(() => [diag])
+
+    const dv = as.read(
+      NodeId.newNumeric(1, CustomIds.ServerDiagnostics_SamplingIntervalDiagnosticsArray),
+      AttributeId.Value,
+    )
+    expect(dv.value?.value).toEqual([])
+  })
+
+  it('reports live diagnostics once EnabledFlag is set to true', () => {
+    const as = new AddressSpace()
+    const diag = new SamplingIntervalDiagnosticsDataType()
+    diag.samplingInterval = 100
+    diag.monitoredItemCount = 2
+    diag.maxMonitoredItemCount = 2
+    diag.disabledMonitoredItemCount = 0
+    as.wireSubscriptionDiagnostics(() => [diag])
+
+    as.write(
+      NodeId.newNumeric(1, CustomIds.ServerDiagnostics_EnabledFlag),
+      AttributeId.Value,
+      new DataValue(Variant.newFrom(true), StatusCode.Good),
+    )
+
+    const dv = as.read(
+      NodeId.newNumeric(1, CustomIds.ServerDiagnostics_SamplingIntervalDiagnosticsArray),
+      AttributeId.Value,
+    )
+    expect(dv.statusCode).toBe(StatusCode.Good)
+    expect(Array.isArray(dv.value?.value)).toBe(true)
+    expect((dv.value?.value as unknown[]).length).toBe(1)
   })
 })

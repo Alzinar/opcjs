@@ -7,6 +7,7 @@ import {
   LocalizedText,
   NodeId as NodeIdClass,
   ExtensionObject,
+  SamplingIntervalDiagnosticsDataType,
   ServerStatusDataType,
   BuildInfo,
   ServerStateEnum,
@@ -31,8 +32,10 @@ import {
   OpcUaNode,
   AccessLevelFlags,
   AccessLevelExFlags,
+  AttributeId,
 } from './node.js'
 import { ObjectIds, ObjectTypeIds, ReferenceTypeIds, VariableTypeIds, DataTypeIds, CustomIds } from './wellKnownIds.js'
+import { MAX_MONITORED_ITEMS_QUEUE_SIZE } from '../subscription/monitoredItem.js'
 
 // Authoritative server identity strings used in standard address-space nodes.
 const SERVER_URI = 'urn:opcjs-server:default-instance'
@@ -43,6 +46,17 @@ const CORE_2022_SERVER_FACET_URI = 'http://opcfoundation.org/UA-Profile/Server/C
 const stringTypeId = NodeIdClass.newNumeric(0, DataTypeIds.String)
 const uint32TypeId = NodeIdClass.newNumeric(0, DataTypeIds.UInt32)
 const doubleTypeId = NodeIdClass.newNumeric(0, DataTypeIds.Double)
+
+// `Variant.newFrom` cannot infer an element BuiltInType from an empty array;
+// reuse the type tag from a throwaway single-element ExtensionObject array
+// instead (see `samplingIntervalDiagnosticsVariant` below).
+const EXTENSION_OBJECT_ARRAY_TYPE = Variant.newFrom([ExtensionObject.newEmpty()]).type
+
+/** Builds the `SamplingIntervalDiagnosticsArray` Value Variant, valid even when `items` is empty. */
+function samplingIntervalDiagnosticsVariant(items: SamplingIntervalDiagnosticsDataType[]): Variant {
+  if (items.length === 0) return new Variant(EXTENSION_OBJECT_ARRAY_TYPE, [])
+  return Variant.newFrom(items.map(d => ExtensionObject.newBinary(d)))
+}
 const booleanTypeId = NodeIdClass.newNumeric(0, DataTypeIds.Boolean)
 const nodeIdTypeId = NodeIdClass.newNumeric(0, DataTypeIds.NodeId)
 
@@ -59,6 +73,10 @@ const nodeIdTypeId = NodeIdClass.newNumeric(0, DataTypeIds.NodeId)
  */
 export class AddressSpace implements IAddressSpace {
   private readonly nodes = new Map<string, OpcUaNode>()
+  /** `Server/ServerDiagnostics/EnabledFlag` \u2014 gates {@link samplingIntervalDiagnosticsArray}. */
+  private serverDiagnosticsEnabledFlag!: VariableNode
+  /** `Server/ServerDiagnostics/SamplingIntervalDiagnosticsArray` \u2014 wired to live data by {@link wireSubscriptionDiagnostics}. */
+  private samplingIntervalDiagnosticsArray!: VariableNode
 
   constructor() {
     this.populateReferenceTypes()
@@ -66,6 +84,19 @@ export class AddressSpace implements IAddressSpace {
     this.populateCoreStructure()
     this.populateServerObject()
     this.populateOptionalExtras()
+  }
+
+  /**
+   * Wires `Server/ServerDiagnostics/SamplingIntervalDiagnosticsArray` to live
+   * data from the server's `SubscriptionManager` (Base Info Fixed
+   * SamplingInterval CU). While `EnabledFlag` is `false` the array reads as
+   * empty, per Part 5 §6.3.13. Called from `OpcUaServer.start()`.
+   */
+  wireSubscriptionDiagnostics(getDiagnostics: () => SamplingIntervalDiagnosticsDataType[]): void {
+    this.samplingIntervalDiagnosticsArray.setValueProvider(() => {
+      const enabled = this.serverDiagnosticsEnabledFlag.read(AttributeId.Value).value?.value === true
+      return samplingIntervalDiagnosticsVariant(enabled ? getDiagnostics() : [])
+    })
   }
 
   /**
@@ -635,6 +666,68 @@ export class AddressSpace implements IAddressSpace {
     )
     this.addReference(serverCapabilities.nodeId, hasProperty, maxSessions.nodeId)
 
+    // Embedded DataChange Subscription 2022 Server Facet: subscription-related
+    // ServerCapabilities variables (Part 5 §6.3.2). Optional / vendor-configured
+    // limits — values chosen generously so normal clients never hit them.
+    const maxSubscriptions = this.addVariable(
+      NodeIdClass.newNumeric(1, CustomIds.ServerCapabilities_MaxSubscriptions),
+      'MaxSubscriptions',
+      uint32TypeId,
+      Variant.newFrom(uaUint32(1000)),
+      -1,
+    )
+    this.addReference(serverCapabilities.nodeId, hasProperty, maxSubscriptions.nodeId)
+
+    const maxMonitoredItems = this.addVariable(
+      NodeIdClass.newNumeric(1, CustomIds.ServerCapabilities_MaxMonitoredItems),
+      'MaxMonitoredItems',
+      uint32TypeId,
+      Variant.newFrom(uaUint32(10000)),
+      -1,
+    )
+    this.addReference(serverCapabilities.nodeId, hasProperty, maxMonitoredItems.nodeId)
+
+    const maxSubscriptionsPerSession = this.addVariable(
+      NodeIdClass.newNumeric(1, CustomIds.ServerCapabilities_MaxSubscriptionsPerSession),
+      'MaxSubscriptionsPerSession',
+      uint32TypeId,
+      Variant.newFrom(uaUint32(100)),
+      -1,
+    )
+    this.addReference(serverCapabilities.nodeId, hasProperty, maxSubscriptionsPerSession.nodeId)
+
+    const maxMonitoredItemsPerSubscription = this.addVariable(
+      NodeIdClass.newNumeric(1, CustomIds.ServerCapabilities_MaxMonitoredItemsPerSubscription),
+      'MaxMonitoredItemsPerSubscription',
+      uint32TypeId,
+      Variant.newFrom(uaUint32(1000)),
+      -1,
+    )
+    this.addReference(serverCapabilities.nodeId, hasProperty, maxMonitoredItemsPerSubscription.nodeId)
+
+    const maxMonitoredItemsQueueSize = this.addVariable(
+      NodeIdClass.newNumeric(1, CustomIds.ServerCapabilities_MaxMonitoredItemsQueueSize),
+      'MaxMonitoredItemsQueueSize',
+      uint32TypeId,
+      Variant.newFrom(uaUint32(MAX_MONITORED_ITEMS_QUEUE_SIZE)),
+      -1,
+    )
+    this.addReference(serverCapabilities.nodeId, hasProperty, maxMonitoredItemsQueueSize.nodeId)
+
+    // AggregateFunctions  (Object, Folder) — entry point to browse supported
+    // AggregateFunctionType instances (Part 5 §6.3.2). Empty: this server does
+    // not implement HistoryRead aggregates.
+    const aggregateFunctions = this.addObject(
+      NodeIdClass.newNumeric(1, CustomIds.ServerCapabilities_AggregateFunctions),
+      'AggregateFunctions',
+    )
+    this.addReference(
+      aggregateFunctions.nodeId,
+      hasTypeDefinition,
+      NodeIdClass.newNumeric(0, ObjectTypeIds.FolderType),
+    )
+    this.addReference(serverCapabilities.nodeId, hasComponent, aggregateFunctions.nodeId)
+
     // ModellingRules  (Object, Folder)
     const modellingRules = this.addObject(
       NodeIdClass.newNumeric(0, ObjectIds.ServerCapabilities_ModellingRules),
@@ -663,6 +756,47 @@ export class AddressSpace implements IAddressSpace {
       'MaxNodesPerTranslateBrowsePathsToNodeIds',
       1000,
     )
+
+    // Embedded DataChange Subscription 2022 Server Facet: MaxMonitoredItemsPerCall
+    // (Part 5 §6.3.11 OperationLimitsType) — no fixed ns=0 NodeId available.
+    const maxMonitoredItemsPerCall = this.addVariable(
+      NodeIdClass.newNumeric(1, CustomIds.OperationLimits_MaxMonitoredItemsPerCall),
+      'MaxMonitoredItemsPerCall',
+      uint32TypeId,
+      Variant.newFrom(uaUint32(1000)),
+      -1,
+    )
+    this.addReference(operationLimits.nodeId, hasProperty, maxMonitoredItemsPerCall.nodeId)
+
+    // ns=1   ServerDiagnostics  (Object) — Base Info Fixed SamplingInterval CU:
+    // `EnabledFlag` gates whether `SamplingIntervalDiagnosticsArray` is populated.
+    // `wireSubscriptionDiagnostics()` (called from `OpcUaServer.start()`) hooks
+    // the array up to live SubscriptionManager data.
+    const serverDiagnostics = this.addObject(
+      NodeIdClass.newNumeric(1, CustomIds.Server_ServerDiagnostics),
+      'ServerDiagnostics',
+    )
+    this.addReference(server.nodeId, hasComponent, serverDiagnostics.nodeId)
+
+    this.serverDiagnosticsEnabledFlag = this.addVariable(
+      NodeIdClass.newNumeric(1, CustomIds.ServerDiagnostics_EnabledFlag),
+      'EnabledFlag',
+      NodeIdClass.newNumeric(0, DataTypeIds.Boolean),
+      Variant.newFrom(false),
+      -1,
+      undefined,
+      AccessLevelFlags.CurrentRead | AccessLevelFlags.CurrentWrite,
+    )
+    this.addReference(serverDiagnostics.nodeId, hasProperty, this.serverDiagnosticsEnabledFlag.nodeId)
+
+    this.samplingIntervalDiagnosticsArray = this.addVariable(
+      NodeIdClass.newNumeric(1, CustomIds.ServerDiagnostics_SamplingIntervalDiagnosticsArray),
+      'SamplingIntervalDiagnosticsArray',
+      NodeIdClass.newNumeric(0, 856 /* SamplingIntervalDiagnosticsDataType */),
+      samplingIntervalDiagnosticsVariant([]),
+      1,
+    )
+    this.addReference(serverDiagnostics.nodeId, hasComponent, this.samplingIntervalDiagnosticsArray.nodeId)
   }
 
   // ---------------------------------------------------------------------------

@@ -189,21 +189,35 @@ OPC UA Part 4 §5.13 (Monitored Items) and §5.14 (Subscriptions). Targets the
   - `Publish` always populates `notificationMessage` (encoder requires it)
 
 - [x] **7.5** `MonitoredItemService` — `src/services/monitoredItemService.ts`
-  - `CreateMonitoredItems`, `DeleteMonitoredItems`
-  - `BadSubscriptionIdInvalid` / `BadNodeIdInvalid` / `BadMonitoredItemIdInvalid`
+  - `CreateMonitoredItems`, `ModifyMonitoredItems`, `DeleteMonitoredItems`, `SetMonitoringMode`
+  - `BadSubscriptionIdInvalid` / `BadNodeIdInvalid` / `BadMonitoredItemIdInvalid` / `BadIndexRangeInvalid`
 
 - [x] **7.6** SecureChannel concurrent dispatch
   - `secureChannelServer.processRequests()` no longer awaits handlers; Publish long-polls run concurrently with other requests on the same channel.
 
 - [x] **7.7** Tests
-  - `tests/subscription.test.ts` — 8 unit tests
-  - `tests/integration/subscription.test.ts` — 4 integration tests (data change, keep-alive, error paths)
-  - All 71 tests pass; lint and build clean.
+  - `tests/subscription.test.ts` — unit tests (Subscription/SubscriptionManager/SubscriptionService/MonitoredItemService)
+  - `tests/integration/subscription.test.ts` — integration tests (data change, keep-alive, error paths)
+  - `tests/addressSpace.test.ts` — ServerCapabilities/OperationLimits/ServerDiagnostics facet nodes
+  - Lint and build clean.
 
-### Open follow-ups (tracked in backlog)
+### Facet complete
 
-- Republish history (currently returns `Bad_MessageNotAvailable`).
-- ModifySubscription must re-arm the publishing timer when `publishingInterval` changes.
-- PublishRequest queue overflow handling (`Bad_TooManyPublishRequests`).
-- Per-item `samplingInterval`, `IndexRange`, `DataChangeFilter`.
-- ServerCapabilities subscription-related variables (`MaxSubscriptions`, etc.).
+The [Embedded DataChange Subscription 2022 Server Facet](../../doc/backlog/embedded-datachange-subscription-2022-server-facet/README.md)
+is now fully implemented:
+
+- `PublishRequestQueue` (`src/subscription/publishRequestQueue.ts`) is a session-scoped
+  (shared across all Subscriptions of one session) FIFO queue of parked Publish
+  requests, capped at 10; overflow resolves the oldest with `Bad_TooManyPublishRequests`.
+- `ModifyMonitoredItems` / `SetMonitoringMode` are wired through `ServiceDispatcher`.
+- `MonitoredItem` applies `IndexRange` (via the shared `services/indexRangeUtil.ts`)
+  and honours the `SemanticsChanged` StatusCode bit (`Subscription.notifySemanticChange`,
+  triggered by `AttributeService` writes to `EngineeringUnits`/`EURange`/`Definition`/
+  `ValuePrecision`/`CurrencyUnit` properties).
+- `ServerCapabilities`/`OperationLimits` now expose `MaxSubscriptions`,
+  `MaxMonitoredItems`, `MaxSubscriptionsPerSession`, `MaxMonitoredItemsPerSubscription`,
+  `MaxMonitoredItemsPerCall`, `MaxMonitoredItemsQueueSize`, and an `AggregateFunctions`
+  folder.
+- `Server/ServerDiagnostics/SamplingIntervalDiagnosticsArray` is wired to live
+  `SubscriptionManager` data via `AddressSpace.wireSubscriptionDiagnostics()`, gated
+  by `EnabledFlag` (Part 5 §6.3.13).

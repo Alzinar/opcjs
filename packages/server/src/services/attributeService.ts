@@ -1,6 +1,7 @@
 import {
   DataValue,
   DiagnosticInfo,
+  NodeId,
   NumericRange,
   ReadRequest,
   ReadResponse,
@@ -14,9 +15,26 @@ import {
 import type { ILogger, NumericRangeDimension, VariantArrayValue, WriteValue } from 'opcjs-base'
 
 import { AccessLevelExFlags, AccessLevelFlags, AttributeId } from '../addressSpace/node.js'
+import { ReferenceTypeIds } from '../addressSpace/wellKnownIds.js'
 import type { IAddressSpace } from '../addressSpace/iAddressSpace.js'
 import type { Session } from '../sessions/session.js'
+import type { SubscriptionManager } from '../subscription/subscriptionManager.js'
 import { makeResponseHeader } from './responseHeader.js'
+import { applyIndexRange } from './indexRangeUtil.js'
+
+/**
+ * BrowseNames of "semantic" Properties whose value change requires the
+ * `SemanticsChanged` StatusCode bit to be set on the next reported DataValue
+ * of the Variable they qualify (OPC UA Part 4 §7.39, Part 8 §5.2).
+ */
+const SEMANTIC_PROPERTY_BROWSE_NAMES = new Set([
+  'EngineeringUnits',
+  'EURange',
+  'Definition',
+  'ValuePrecision',
+  'CurrencyUnit',
+])
+const HAS_PROPERTY = NodeId.newNumeric(0, ReferenceTypeIds.HasProperty)
 
 /**
  * Handles the OPC UA `Read` service.
@@ -30,7 +48,11 @@ import { makeResponseHeader } from './responseHeader.js'
 export class AttributeService {
   private readonly logger: ILogger
 
-  constructor(private readonly addressSpace: IAddressSpace) {
+  constructor(
+    private readonly addressSpace: IAddressSpace,
+    /** Optional: used to set the `SemanticsChanged` bit on affected MonitoredItems (Base Info SemanticChange Bit CU). */
+    private readonly subscriptionManager?: SubscriptionManager,
+  ) {
     this.logger = getLogger('services.AttributeService')
   }
 
@@ -164,11 +186,33 @@ export class AttributeService {
     const finalSourceTimestamp =
       (accessLevel & AccessLevelFlags.TimestampWrite) !== 0 ? (sourceTimestampWv ?? new Date()) : new Date()
 
-    return this.addressSpace.write(
+    const result = this.addressSpace.write(
       wv.nodeId,
       AttributeId.Value,
       new DataValue(newVariant, finalStatusCode, finalSourceTimestamp),
     )
+
+    if (result === StatusCode.Good) {
+      this.notifySemanticChangeIfApplicable(wv.nodeId)
+    }
+    return result
+  }
+
+  /**
+   * When `nodeId` is a "semantic" Property (`EngineeringUnits`, `EURange`,
+   * `Definition`, `ValuePrecision`, `CurrencyUnit`), marks the owning
+   * Variable's MonitoredItems so their next reported DataValue carries the
+   * `SemanticsChanged` StatusCode bit (OPC UA Part 4 §7.39).
+   */
+  private notifySemanticChangeIfApplicable(nodeId: NodeId): void {
+    if (this.subscriptionManager === undefined) return
+    const node = this.addressSpace.getNode(nodeId)
+    if (node === undefined || !SEMANTIC_PROPERTY_BROWSE_NAMES.has(node.browseName.name)) return
+    const owner = node
+      .getReferences()
+      .find(r => !r.isForward && r.referenceTypeId.toString() === HAS_PROPERTY.toString())
+    if (owner === undefined) return
+    this.subscriptionManager.notifySemanticChange(owner.targetNodeId)
   }
 }
 
@@ -224,103 +268,6 @@ function mergeStringRange(
   }
   const merged = value.slice(0, dim.start) + replacement + value.slice(end + 1)
   return new Variant(current.type, merged)
-}
-
-/**
- * Applies the `IndexRange` parameter (OPC UA Part 4 §7.27) to a `DataValue`.
- *
- * - An empty/absent range returns `dv` unchanged.
- * - A range is only applied to a `Good` value; existing errors take priority.
- * - Invalid `NumericRange` syntax returns `Bad_IndexRangeInvalid`.
- * - A syntactically valid range that cannot be satisfied (multi-dimensional
- *   ranges — this address space only holds scalars and 1-D arrays —, an
- *   out-of-bounds lower index, or a range applied to a non-array/non-string
- *   scalar) returns `Bad_IndexRangeNoData`.
- * - An out-of-bounds upper index is clamped (partial result, no error).
- */
-function applyIndexRange(dv: DataValue, indexRange: string | null | undefined): DataValue {
-  if (!indexRange) {
-    return dv
-  }
-  if (dv.statusCode !== StatusCode.Good || dv.value === undefined) {
-    return dv
-  }
-
-  const range = NumericRange.parse(indexRange)
-  if (range === undefined) {
-    return new DataValue(undefined, StatusCode.BadIndexRangeInvalid)
-  }
-
-  const sliced = sliceVariant(dv.value, range.dimensions)
-  if (sliced === undefined) {
-    return new DataValue(undefined, StatusCode.BadIndexRangeNoData)
-  }
-
-  return new DataValue(
-    sliced,
-    dv.statusCode,
-    dv.sourceTimestamp,
-    dv.serverTimestamp,
-    dv.sourcePicoseconds,
-    dv.serverPicoseconds,
-  )
-}
-
-/** Slices an element range out of a string / ByteString, returning `undefined` when out of bounds. */
-function sliceStringOrBytes<T extends string | Uint8Array>(
-  value: T,
-  dim: NumericRangeDimension,
-): T | undefined {
-  if (dim.start >= value.length) {
-    return undefined
-  }
-  const end = Math.min(dim.end, value.length - 1)
-  return value.slice(dim.start, end + 1) as T
-}
-
-/**
- * Slices a `Variant` per the parsed `NumericRange` dimensions.
- * Returns `undefined` when the range cannot be satisfied (→ `Bad_IndexRangeNoData`).
- *
- * Only single-dimension ranges are supported, matching the scalar and 1-D
- * array values held by this address space (Part 4 §7.27 requires all
- * dimensions of the ArrayDimensions Attribute to be specified; a Node here
- * never has more than one).
- */
-function sliceVariant(variant: Variant, dims: readonly NumericRangeDimension[]): Variant | undefined {
-  if (dims.length !== 1) {
-    return undefined
-  }
-  const dim = dims[0]
-
-  if (variant.isArray()) {
-    const array = variant.value as unknown[]
-    const sliced = sliceArrayByRange(array, dim)
-    if (sliced === undefined) {
-      return undefined
-    }
-    return new Variant(variant.type, sliced as VariantArrayValue, [sliced.length])
-  }
-
-  // Scalar: only String / ByteString support IndexRange (treated as a 1-D char/byte array).
-  if (typeof variant.value === 'string' || variant.value instanceof Uint8Array) {
-    const sliced = sliceStringOrBytes(variant.value, dim)
-    if (sliced === undefined) {
-      return undefined
-    }
-    return new Variant(variant.type, sliced)
-  }
-
-  return undefined
-}
-
-/** Slices an array by element index, returning `undefined` when the lower bound is out of range. */
-function sliceArrayByRange(array: unknown[], dim: NumericRangeDimension): unknown[] | undefined {
-  if (dim.start >= array.length) {
-    return undefined
-  }
-  const end = Math.min(dim.end, array.length - 1)
-  return array.slice(dim.start, end + 1)
 }
 
 /**

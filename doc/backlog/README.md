@@ -17,7 +17,7 @@ Each facet has its own folder; each conformance unit has its own document.
 | [minimum-ua-2025-client-facet/](./minimum-ua-2025-client-facet/) | Minimum UA 2025 Client Facet | Minimum UA Client 2025 Profile | 0 / 2 ❌ | 1 ❌ |
 | [base-client-behaviour-facet/](./base-client-behaviour-facet/) | Base Client Behaviour Facet | Standard UA Client Profiles | 7 / 7 ✅ | — |
 | [core-2022-server-facet/](./core-2022-server-facet/) | Core 2022 Server Facet | Nano/Standard UA Server Profiles | 15 / 15 ✅ | 18 ✅ · 4 ❌ |
-| [embedded-datachange-subscription-2022-server-facet/](./embedded-datachange-subscription-2022-server-facet/) | Embedded DataChange Subscription 2022 Server Facet | Micro/Standard UA Server Profiles | 2 ✅ · 3 ⚠️ · 5 ❌ | — |
+| [embedded-datachange-subscription-2022-server-facet/](./embedded-datachange-subscription-2022-server-facet/) | Embedded DataChange Subscription 2022 Server Facet | Micro/Standard UA Server Profiles | 10 / 10 ✅ | — |
 
 ### Conformance Unit Detail
 
@@ -191,16 +191,16 @@ Each facet has its own folder; each conformance unit has its own document.
 
 | Status | Conformance Unit |
 |--------|-----------------|
-| ⚠️ | [Subscription Basic](./embedded-datachange-subscription-2022-server-facet/subscription-basic.md) |
-| ⚠️ | [Subscription Publish Basic](./embedded-datachange-subscription-2022-server-facet/subscription-publish-basic.md) |
-| ❌ | [Subscription PublishRequest Queue Overflow](./embedded-datachange-subscription-2022-server-facet/subscription-publish-request-queue-overflow.md) |
-| ⚠️ | [Monitor Basic](./embedded-datachange-subscription-2022-server-facet/monitor-basic.md) |
+| ✅ | [Subscription Basic](./embedded-datachange-subscription-2022-server-facet/subscription-basic.md) |
+| ✅ | [Subscription Publish Basic](./embedded-datachange-subscription-2022-server-facet/subscription-publish-basic.md) |
+| ✅ | [Subscription PublishRequest Queue Overflow](./embedded-datachange-subscription-2022-server-facet/subscription-publish-request-queue-overflow.md) |
+| ✅ | [Monitor Basic](./embedded-datachange-subscription-2022-server-facet/monitor-basic.md) |
 | ✅ | [Monitor Items 2](./embedded-datachange-subscription-2022-server-facet/monitor-items-2.md) |
-| ⚠️ | [Monitor Value Change V2](./embedded-datachange-subscription-2022-server-facet/monitor-value-change-v2.md) |
-| ❌ | [Base Info Server Capabilities Subscriptions](./embedded-datachange-subscription-2022-server-facet/base-info-server-capabilities-subscriptions.md) |
-| ❌ | [Base Info Server Capabilities MaxMonitoredItemsQueueSize](./embedded-datachange-subscription-2022-server-facet/base-info-server-capabilities-max-monitored-items-queue-size.md) |
-| ❌ | [Base Info Fixed SamplingInterval](./embedded-datachange-subscription-2022-server-facet/base-info-fixed-sampling-interval.md) |
-| ❌ | [Base Info SemanticChange Bit](./embedded-datachange-subscription-2022-server-facet/base-info-semantic-change-bit.md) |
+| ✅ | [Monitor Value Change V2](./embedded-datachange-subscription-2022-server-facet/monitor-value-change-v2.md) |
+| ✅ | [Base Info Server Capabilities Subscriptions](./embedded-datachange-subscription-2022-server-facet/base-info-server-capabilities-subscriptions.md) |
+| ✅ | [Base Info Server Capabilities MaxMonitoredItemsQueueSize](./embedded-datachange-subscription-2022-server-facet/base-info-server-capabilities-max-monitored-items-queue-size.md) |
+| ✅ | [Base Info Fixed SamplingInterval](./embedded-datachange-subscription-2022-server-facet/base-info-fixed-sampling-interval.md) |
+| ✅ | [Base Info SemanticChange Bit](./embedded-datachange-subscription-2022-server-facet/base-info-semantic-change-bit.md) |
 
 ## Specification References
 

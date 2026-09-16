@@ -12,6 +12,7 @@ import {
   ExtensionObject,
   FindServersRequest,
   GetEndpointsRequest,
+  ModifyMonitoredItemsRequest,
   ModifySubscriptionRequest,
   NodeId,
   PublishRequest,
@@ -20,6 +21,7 @@ import {
   RepublishRequest,
   ResponseHeader,
   ServiceFault,
+  SetMonitoringModeRequest,
   SetPublishingModeRequest,
   StatusCode,
   TranslateBrowsePathsToNodeIdsRequest,
@@ -163,8 +165,14 @@ export class ServiceDispatcher {
     if (request instanceof CreateMonitoredItemsRequest) {
       return this.monitoredItemSvc.createMonitoredItems(request, authToken)
     }
+    if (request instanceof ModifyMonitoredItemsRequest) {
+      return this.monitoredItemSvc.modifyMonitoredItems(request, authToken)
+    }
     if (request instanceof DeleteMonitoredItemsRequest) {
       return this.monitoredItemSvc.deleteMonitoredItems(request, authToken)
+    }
+    if (request instanceof SetMonitoringModeRequest) {
+      return this.monitoredItemSvc.setMonitoringMode(request, authToken)
     }
 
     this.logger.warn(`Unhandled request type: ${request.constructor.name}`)

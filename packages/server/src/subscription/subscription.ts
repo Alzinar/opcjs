@@ -3,6 +3,8 @@ import {
   DiagnosticInfo,
   ExtensionObject,
   type ILogger,
+  type NodeId,
+  MonitoringModeEnum,
   NotificationMessage,
   PublishResponse,
   ResponseHeader,
@@ -12,9 +14,11 @@ import {
   getLogger,
 } from 'opcjs-base'
 
+import { AttributeId } from '../addressSpace/node.js'
 import type { IAddressSpace } from '../addressSpace/iAddressSpace.js'
 import { makeResponseHeader } from '../services/responseHeader.js'
 import { MonitoredItem } from './monitoredItem.js'
+import type { PublishRequestQueue } from './publishRequestQueue.js'
 
 /** Default revision bounds for `requestedPublishingInterval` (ms). OPC UA Part 4 §5.14.2. */
 const MIN_PUBLISHING_INTERVAL_MS = 50
@@ -65,8 +69,6 @@ export class Subscription {
   private readonly monitoredItems = new Map<number, MonitoredItem>()
   /** Retained notification messages for potential Republish requests. */
   private readonly retained: NotificationMessage[] = []
-  /** Queue of pending Publish callbacks (FIFO). */
-  private readonly waitingPublishCallbacks: PublishCallback[] = []
   /** Tick counter since the last NotificationMessage or keep-alive was sent. */
   private keepAliveCounter = 0
   /** Tick counter since the last interaction (PublishRequest or NotificationMessage sent). */
@@ -91,6 +93,8 @@ export class Subscription {
     public readonly maxNotificationsPerPublish: number,
     public publishingEnabled: boolean,
     public readonly priority: number,
+    /** Session-scoped queue of parked Publish requests, shared with sibling Subscriptions of the same session. */
+    private readonly publishQueue: PublishRequestQueue,
     private readonly addressSpace: IAddressSpace,
     /** Invoked when the subscription lifetime expires; the manager removes us. */
     private readonly onExpired: (subscriptionId: number) => void,
@@ -142,8 +146,12 @@ export class Subscription {
   }
 
   /**
-   * Stops the publishing timer and rejects all waiting publish callbacks with
-   * a `BadSessionClosed` StatusChangeNotification. Idempotent.
+   * Stops the publishing timer. Idempotent.
+   *
+   * Does not touch the session-scoped {@link PublishRequestQueue}: sibling
+   * Subscriptions of the same session may still be able to serve parked
+   * Publish requests. `SubscriptionManager` drains the queue once the last
+   * Subscription of a session is removed.
    */
   dispose(): void {
     if (this.disposed) return
@@ -151,12 +159,6 @@ export class Subscription {
     if (this.timer !== undefined) {
       clearInterval(this.timer)
       this.timer = undefined
-    }
-    // Flush waiting publish callbacks with a status-change notification so
-    // the client publish loop can exit cleanly.
-    const callbacks = this.waitingPublishCallbacks.splice(0)
-    for (const cb of callbacks) {
-      cb(this.buildStatusChangeResponse(0, StatusCode.BadSessionClosed))
     }
   }
 
@@ -173,6 +175,7 @@ export class Subscription {
       this.revisedPublishingInterval,
       item.queueSize,
       item.monitoringMode,
+      item.indexRange,
     )
     this.monitoredItems.set(id, mi)
     // Sample once immediately so the first publish always carries the initial value.
@@ -190,6 +193,49 @@ export class Subscription {
     })
   }
 
+  /** Returns the monitored item with the given id, if it belongs to this subscription. */
+  getMonitoredItem(monitoredItemId: number): MonitoredItem | undefined {
+    return this.monitoredItems.get(monitoredItemId)
+  }
+
+  /** Revises the queue size of an existing monitored item (`ModifyMonitoredItems`, Part 4 §5.13.3). */
+  modifyMonitoredItem(monitoredItemId: number, queueSize: number): StatusCode {
+    const mi = this.monitoredItems.get(monitoredItemId)
+    if (mi === undefined) return StatusCode.BadMonitoredItemIdInvalid
+    mi.modify(queueSize)
+    return StatusCode.Good
+  }
+
+  /** Sets the monitoring mode of existing monitored items (`SetMonitoringMode`, Part 4 §5.13.4). Returns a StatusCode per requested id. */
+  setMonitoringMode(monitoredItemIds: number[], monitoringMode: MonitoringModeEnum): StatusCode[] {
+    return monitoredItemIds.map(id => {
+      const mi = this.monitoredItems.get(id)
+      if (mi === undefined) return StatusCode.BadMonitoredItemIdInvalid
+      mi.monitoringMode = monitoringMode
+      return StatusCode.Good
+    })
+  }
+
+  /**
+   * Marks every MonitoredItem of this subscription observing the `Value`
+   * attribute of `nodeId` so their next reported DataValue carries the
+   * `SemanticsChanged` StatusCode bit (Base Info SemanticChange Bit CU).
+   */
+  notifySemanticChange(nodeId: NodeId): void {
+    for (const mi of this.monitoredItems.values()) {
+      if (mi.attributeId === AttributeId.Value && mi.nodeId.toString() === nodeId.toString()) {
+        mi.markSemanticsChanged()
+      }
+    }
+  }
+
+  /** Yields `{ samplingInterval, monitoringMode }` for every monitored item, for `SamplingIntervalDiagnosticsArray` aggregation. */
+  *monitoredItemDiagnostics(): IterableIterator<{ samplingInterval: number; monitoringMode: MonitoringModeEnum }> {
+    for (const mi of this.monitoredItems.values()) {
+      yield { samplingInterval: mi.revisedSamplingInterval, monitoringMode: mi.monitoringMode }
+    }
+  }
+
   /** Number of monitored items currently attached to this subscription. */
   get monitoredItemCount(): number {
     return this.monitoredItems.size
@@ -202,8 +248,9 @@ export class Subscription {
    * immediately to discard retained NotificationMessages.
    *
    * If there are queued notifications they are flushed to the callback
-   * synchronously; otherwise the callback waits for the next publishing tick
-   * or keep-alive.
+   * synchronously; otherwise the callback is parked on the session-scoped
+   * {@link PublishRequestQueue} (Subscription Publish Basic /
+   * PublishRequest Queue Overflow CUs).
    */
   enqueuePublishCallback(
     requestHandle: number,
@@ -230,7 +277,7 @@ export class Subscription {
     if (this.hasPendingNotifications()) {
       this.sendNotificationMessage(wrapped)
     } else {
-      this.waitingPublishCallbacks.push(wrapped)
+      this.publishQueue.enqueue(requestHandle, wrapped)
     }
   }
 
@@ -263,8 +310,8 @@ export class Subscription {
       for (const mi of this.monitoredItems.values()) {
         if (mi.sample(this.addressSpace)) anyChanged = true
       }
-      if (anyChanged && this.waitingPublishCallbacks.length > 0) {
-        const cb = this.waitingPublishCallbacks.shift()!
+      if (anyChanged && !this.publishQueue.isEmpty) {
+        const cb = this.publishQueue.dequeue()!
         this.sendNotificationMessage(cb)
         return
       }
@@ -274,11 +321,8 @@ export class Subscription {
     this.lifetimeCounter += 1
 
     // Send keep-alive when allowed AND a publish request is waiting.
-    if (
-      this.keepAliveCounter >= this.revisedMaxKeepAliveCount &&
-      this.waitingPublishCallbacks.length > 0
-    ) {
-      const cb = this.waitingPublishCallbacks.shift()!
+    if (this.keepAliveCounter >= this.revisedMaxKeepAliveCount && !this.publishQueue.isEmpty) {
+      const cb = this.publishQueue.dequeue()!
       this.sendKeepAlive(cb)
       this.keepAliveCounter = 0
     }
@@ -288,7 +332,7 @@ export class Subscription {
         `Subscription ${this.subscriptionId} lifetime expired — sending StatusChangeNotification`,
       )
       // Notify any waiting client of the expiry, then ask the manager to drop us.
-      const cb = this.waitingPublishCallbacks.shift()
+      const cb = this.publishQueue.dequeue()
       if (cb !== undefined) {
         cb(this.buildStatusChangeResponse(0, StatusCode.BadTimeout))
       }
@@ -401,6 +445,8 @@ export type MonitoredItemArgs = {
   clientHandle: number
   queueSize: number
   monitoringMode: import('opcjs-base').MonitoringModeEnum
+  /** `IndexRange` (Part 4 §7.27) selecting a subset of the sampled value, or `undefined` for the whole value. */
+  indexRange?: string
 }
 
 /** Result of {@link reviseSubscriptionParameters}. */

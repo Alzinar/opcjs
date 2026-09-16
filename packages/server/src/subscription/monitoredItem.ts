@@ -7,6 +7,18 @@ import {
 } from 'opcjs-base'
 
 import type { IAddressSpace } from '../addressSpace/iAddressSpace.js'
+import { applyIndexRange } from '../services/indexRangeUtil.js'
+
+/** Bit 14 of a StatusCode: the semantics (engineering unit, definition, ...) of the variable changed (OPC UA Part 4 §7.39). */
+const SEMANTICS_CHANGED_BIT = 0x4000
+
+/**
+ * Upper bound on `revisedQueueSize` (Base Info Server Capabilities
+ * MaxMonitoredItemsQueueSize CU). Mirrored by the
+ * `ServerCapabilities/MaxMonitoredItemsQueueSize` address-space node so
+ * clients can discover the limit.
+ */
+export const MAX_MONITORED_ITEMS_QUEUE_SIZE = 100
 
 /**
  * Server-side state for a single monitored item belonging to a {@link Subscription}.
@@ -28,6 +40,9 @@ export class MonitoredItem {
   /** Queued notifications awaiting the next publishing tick. */
   private readonly queue: MonitoredItemNotification[] = []
 
+  /** Set by {@link Subscription.notifySemanticChange}; consumed on the next {@link sample}. */
+  private semanticsChangedPending = false
+
   constructor(
     public readonly monitoredItemId: number,
     public readonly nodeId: NodeId,
@@ -35,10 +50,30 @@ export class MonitoredItem {
     public readonly clientHandle: number,
     /** Revised sampling interval in milliseconds (always == subscription publishing interval here). */
     public readonly revisedSamplingInterval: number,
-    /** Maximum number of values that may be queued. */
-    public readonly revisedQueueSize: number,
+    /** Maximum number of values that may be queued. Mutable via {@link modify}. */
+    public revisedQueueSize: number,
     public monitoringMode: MonitoringModeEnum,
+    /** `IndexRange` (Part 4 §7.27) selecting a subset of the sampled value, or `undefined` for the whole value. */
+    public readonly indexRange?: string,
   ) {}
+
+  /** Revises `revisedQueueSize` in response to a `ModifyMonitoredItems` request. */
+  modify(queueSize: number): void {
+    this.revisedQueueSize = queueSize
+    // Trim the existing queue if it now exceeds the new (smaller) size.
+    while (this.queue.length > this.revisedQueueSize) {
+      this.queue.shift()
+    }
+  }
+
+  /**
+   * Marks that a semantic property of the monitored Variable changed; the
+   * next sampled value will have the `SemanticsChanged` StatusCode bit set
+   * and will be reported even if the value itself is unchanged (Part 4 §7.39).
+   */
+  markSemanticsChanged(): void {
+    this.semanticsChangedPending = true
+  }
 
   /**
    * Sample the underlying address-space value.
@@ -56,9 +91,10 @@ export class MonitoredItem {
       return false
     }
 
-    const dataValue = addressSpace.read(this.nodeId, this.attributeId)
+    const dataValue = applyIndexRange(addressSpace.read(this.nodeId, this.attributeId), this.indexRange)
 
-    if (!this.hasChanged(dataValue)) {
+    const semanticsChanged = this.semanticsChangedPending
+    if (!this.hasChanged(dataValue) && !semanticsChanged) {
       return false
     }
 
@@ -66,12 +102,23 @@ export class MonitoredItem {
 
     if (this.monitoringMode !== MonitoringModeEnum.Reporting) {
       // Sampling mode tracks values but does not report them (Part 4 §5.12.2).
+      this.semanticsChangedPending = false
       return false
     }
 
     const notification = new MonitoredItemNotification()
     notification.clientHandle = this.clientHandle
-    notification.value = dataValue
+    notification.value = semanticsChanged
+      ? new DataValue(
+          dataValue.value,
+          (dataValue.statusCode ?? StatusCode.Good) | SEMANTICS_CHANGED_BIT,
+          dataValue.sourceTimestamp,
+          dataValue.serverTimestamp,
+          dataValue.sourcePicoseconds,
+          dataValue.serverPicoseconds,
+        )
+      : dataValue
+    this.semanticsChangedPending = false
 
     if (this.queue.length >= this.revisedQueueSize) {
       // Drop oldest (simplified: queueSize=1 in practice for most tests).

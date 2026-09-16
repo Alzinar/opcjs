@@ -90,9 +90,12 @@ export class OpcUaServer {
       this.config.endpointPath,
       subscriptionManager,
     )
-    const attributeSvc = new AttributeService(this.addressSpace)
+    const attributeSvc = new AttributeService(this.addressSpace, subscriptionManager)
     const discoverySvc = new DiscoveryService(this.config, this.config.endpointPath)
     const viewSvc = new ViewService(this.addressSpace)
+    if (this.addressSpace instanceof AddressSpace) {
+      this.addressSpace.wireSubscriptionDiagnostics(() => subscriptionManager.getSamplingIntervalDiagnostics())
+    }
     const dispatcher = new ServiceDispatcher(
       sessionManager,
       sessionSvc,
