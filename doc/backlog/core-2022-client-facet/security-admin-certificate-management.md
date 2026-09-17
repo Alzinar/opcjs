@@ -2,7 +2,7 @@
 
 **Facet**: Core 2022 Client Facet  
 **Type**: Optional  
-**Status**: ❌ Not implemented  
+**Status**: ✅ Implemented  
 
 ## Description
 
@@ -54,10 +54,22 @@ When the client receives a server certificate during `CreateSession`:
 Online: https://reference.opcfoundation.org/Core/Part2/v105/docs/4.4  
 Online: https://reference.opcfoundation.org/Core/Part6/v105/docs/6.2
 
-## Implementation Gap
+## Implementation
 
-The `trustedCAs` and `unknownCertificatePolicy` fields are stored in `SecurityConfiguration` but not actively used.  
-No PKI directory management, certificate generation, CRL checking, or chain validation is implemented.
+Implemented in `opcjs-base` (shared, isomorphic) and wired into `opcjs-client` and `opcjs-server`:
+
+- `ICertificateStore` (packages/base/src/certificates/iCertificateStore.ts) — `addTrusted()`, `removeTrusted()`, `listTrusted()`, `reject()`, `listRejected()`, `getOwn()`, `generateOwn()`, `renewOwn()`, `validate()`. Certificate parsing, chain building, CRL matching, and self-signed generation are implemented on top of `@peculiar/x509` + the WebCrypto API (`certificateCrypto.ts`), so the validation logic is written once and shared by both storage backends below.
+- `FileSystemCertificateStore` (packages/base/src/certificates/fileSystemCertificateStore.ts) — Node.js implementation using `node:fs/promises`, laid out per the OPC UA PKI directory structure below. Deliberately **not** re-exported from `opcjs-base`'s main entry point (only reachable via `createDefaultCertificateStore()`) because a static re-export breaks browser bundlers (Vite fails hard resolving `node:fs/promises`/`node:path` through its browser-external shim when the module is reachable from the bundled entry).
+- `IndexedDbCertificateStore` (packages/base/src/certificates/indexedDbCertificateStore.ts) — browser implementation backed by IndexedDB, storing the own private key as a non-extractable `CryptoKey` rather than exported raw bytes.
+- `createDefaultCertificateStore()` (packages/base/src/certificates/createDefaultCertificateStore.ts) — picks the right implementation for the current environment via `isNodeLike()`.
+- `SecurityConfiguration.certificateStore` and `SecurityConfiguration.validateServerCertificate` (packages/client/src/securityConfiguration.ts) — the latter is a caller-overridable callback (not part of `ICertificateStore`) defaulting to `(cert, store, uri) => store.validate(cert, uri)`, so a user can plug in custom validation without reimplementing the store.
+- `SessionHandler.createNewSession()` (packages/client/src/sessions/sessionHandler.ts) — lazily creates/memoizes the default certificate store, falls back to the store's own certificate for `CreateSession` when `applicationInstanceCertificate` isn't explicitly configured, and validates the server's certificate from `CreateSessionResponse` before activating the session, throwing `ServerCertificateRejectedError` on rejection.
+- Server reuse: `ConfigurationServer.certificateStore` (packages/server/src/configuration/configurationServer.ts) lets a server supply its own `ICertificateStore`; `SessionService.createSession()` (packages/server/src/services/sessionService.ts) uses `store.getOwn()` to populate `CreateSessionResponse.serverCertificate` when configured (`null` otherwise, preserving prior behaviour). Full server-side validation of incoming client certificates / RBAC is out of scope here and remains tracked separately (see Security Administration, Security Role Server Authorization in the Core 2022 Server Facet).
+- Round-trip integration test: packages/base/tests/integration/certificateStore.test.ts exercises `FileSystemCertificateStore` end-to-end against a real temp directory (generate own cert, trust/validate/reject/remove, renew).
+
+## Implementation Gap (historical, prior to this CU's implementation)
+
+The `trustedCAs` and `unknownCertificatePolicy` fields were stored in `SecurityConfiguration` but not actively used, and have since been removed: the trust list now lives in `ICertificateStore`, and unknown-certificate handling is the `validateServerCertificate` callback (see Implementation above).
 
 ## Work Required
 

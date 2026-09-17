@@ -83,7 +83,7 @@ export class ServiceDispatcher {
       return this.discoverySvc.findServers(request)
     }
     if (request instanceof CreateSessionRequest) {
-      return this.sessionSvc.createSession(request, channelId)
+      return await this.sessionSvc.createSession(request, channelId)
     }
     // ActivateSession: session must exist but need not be activated yet.
     if (request instanceof ActivateSessionRequest) {

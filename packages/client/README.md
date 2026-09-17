@@ -191,9 +191,24 @@ config.securityConfiguration = {
 | `allowedUserTokenTypes` | all types | Token types the client will accept |
 | `allowSecurityPolicyNone` | `true` | Allow unencrypted SecurityPolicy None channels |
 | `messageSecurityMode` | any | Required `MessageSecurityMode` |
-| `trustedCAs` | — | DER-encoded trusted CA certificates (reserved for future use) |
-| `unknownCertificatePolicy` | — | `'reject'` or `'trust'` for unverifiable server certificates (reserved for future use) |
 | `applicationInstanceCertificate` | — | DER-encoded site-specific ApplicationInstanceCertificate (Security Certificate Administration conformance unit). Sent proactively as `clientCertificate` on every `CreateSession`; also used as the OPC UA 1.0 fallback when a server rejects an uncertified session. |
 | `privateKey` | — | DER-encoded PKCS#8 private key matching `applicationInstanceCertificate` (reserved for future use until a signing security policy is implemented) |
+| `certificateStore` | lazily created default | An `ICertificateStore` managing this client's own certificate and trusted/rejected CA lists (Security Admin – Certificate Management conformance unit) |
+| `validateServerCertificate` | `store.validate(cert, uri)` | Overridable hook to validate the server certificate from `CreateSessionResponse` |
 
 > **Security note:** `allowSecurityPolicyNone: true` (the default) allows cleartext communication. Set it to `false` once non-None security policies are available in this client implementation.
+
+## Certificate Management
+
+`opcjs-base` provides an isomorphic `ICertificateStore` (OPC UA Part 6, §6.2) that persists application instance certificates and trusted/rejected CA lists in the standard OPC UA PKI directory layout:
+
+```ts
+import { createDefaultCertificateStore } from 'opcjs-base'
+
+// Picks FileSystemCertificateStore under Node.js, IndexedDbCertificateStore in a browser.
+const store = await createDefaultCertificateStore({ pkiBaseDir: './pki' })
+await store.generateOwn({ applicationUri: config.applicationUri, commonName: 'MyApp' })
+await store.addTrusted(caCertDer)
+```
+
+When `securityConfiguration.certificateStore` is not set, `Client` lazily creates and reuses a default store on first connect. `securityConfiguration.validateServerCertificate` lets you override how the server's certificate (received in `CreateSessionResponse`) is validated — e.g. for pinning or extra OCSP checks — without reimplementing the store; it defaults to delegating to `ICertificateStore.validate()`. On rejection, `connect()` throws `ServerCertificateRejectedError`.

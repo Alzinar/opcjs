@@ -1,19 +1,7 @@
-import type { MessageSecurityModeEnum, UserTokenTypeEnum } from 'opcjs-base'
+import type { ICertificateStore, MessageSecurityModeEnum, UserTokenTypeEnum } from 'opcjs-base'
 
 /** URI for the SecurityPolicy None profile. */
 export const SECURITY_POLICY_NONE_URI = 'http://opcfoundation.org/UA/SecurityPolicy#None'
-
-/**
- * How the client should handle a server certificate it cannot verify.
- *
- * - `'reject'` — abort the connection (secure default when `trustedCAs` is configured).
- * - `'trust'`  — accept any certificate without verification (development convenience;
- *                **insecure in production**).
- *
- * @note Enforcement is deferred until certificate-based security policies are
- *       implemented. The value is stored and will be honoured when that support lands.
- */
-export type UnknownCertificatePolicy = 'reject' | 'trust'
 
 /**
  * OPC UA client security configuration (OPC UA Part 2, Security Administration CU).
@@ -71,26 +59,6 @@ export type SecurityConfiguration = {
   messageSecurityMode?: MessageSecurityModeEnum
 
   /**
-   * DER-encoded X.509 trusted CA certificates used to verify the server's
-   * application instance certificate.
-   *
-   * @note Reserved for future use. Certificate verification is not yet implemented.
-   *       Providing this field has no effect until non-None security policies land.
-   */
-  trustedCAs?: Uint8Array[]
-
-  /**
-   * How to handle a server certificate that cannot be verified against `trustedCAs`.
-   *
-   * - `'reject'` — refuse the connection (default when `trustedCAs` is provided).
-   * - `'trust'`  — accept any certificate (development only; insecure in production).
-   *
-   * @note Reserved for future use. Has no effect until certificate verification is
-   *       implemented alongside non-None security policies.
-   */
-  unknownCertificatePolicy?: UnknownCertificatePolicy
-
-  /**
    * DER-encoded X.509 ApplicationInstanceCertificate for this client
    * (Security Certificate Administration conformance unit — OPC UA Part 6, §6.2).
    *
@@ -120,4 +88,35 @@ export type SecurityConfiguration = {
    *       policies are implemented.
    */
   privateKey?: Uint8Array
+
+  /**
+   * Persistent certificate store used to manage this client's own application
+   * instance certificate and the trusted/rejected CA lists (Security Admin –
+   * Certificate Management conformance unit — OPC UA Part 6, §6.2).
+   *
+   * When not set, `Client.connect()` resolves and caches a default store on
+   * startup, appropriate for the current environment (`FileSystemCertificateStore`
+   * under Node.js, `IndexedDbCertificateStore` in a browser — see
+   * `createDefaultCertificateStore` in `opcjs-base`).
+   */
+  certificateStore?: ICertificateStore
+
+  /**
+   * Overridable hook used to validate a server's certificate received in
+   * `CreateSessionResponse` (OPC 10000-6 §6.2 validation procedure).
+   *
+   * This is a caller-overridable callback rather than part of `ICertificateStore`
+   * itself, so a user can plug in custom validation logic (e.g. pinning, extra
+   * OCSP checks) without reimplementing the store.
+   *
+   * Defaults to `(cert, store, uri) => store.validate(cert, uri)`.
+   *
+   * @note Replaces the old `unknownCertificatePolicy` field: override this callback
+   *       to trust/reject certificates the store couldn't chain to a trusted CA.
+   */
+  validateServerCertificate?: (
+    certificate: Uint8Array,
+    store: ICertificateStore,
+    expectedApplicationUri?: string,
+  ) => Promise<{ status: 'trusted' | 'rejected'; reason?: string }>
 }

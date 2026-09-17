@@ -28,6 +28,8 @@ import {
   ServerStateEnum,
   type ServerStatusDataType,
   type EndpointDescription,
+  type ICertificateStore,
+  createDefaultCertificateStore,
 } from 'opcjs-base'
 
 import { SessionHandler } from './sessions/sessionHandler.js'
@@ -88,6 +90,9 @@ export class Client {
   private ws?: WebSocketFascade
   private sessionHandler?: SessionHandler
   private keepAliveTimer?: ReturnType<typeof setInterval>
+  // Resolved once on first connect() ("checked on startup") and reused across reconnects;
+  // see resolveCertificateStore().
+  private certificateStore?: ICertificateStore
   /** Set to true while a shutdown-triggered reconnect is pending to avoid duplicate attempts. */
   private shutdownReconnectPending = false
   /** Set to true while a publish-loop-error reconnect is pending to avoid duplicate attempts. */
@@ -460,14 +465,35 @@ export class Client {
     this.secureChannelFacade = sc
     this.ws = ws
 
+    const certificateStore = await this.resolveCertificateStore()
+
     this.logger.debug('Creating session...')
-    this.sessionHandler = new SessionHandler(sc, this.configuration)
+    this.sessionHandler = new SessionHandler(sc, this.configuration, certificateStore)
     this.session = await this.sessionHandler.createNewSession(this.identity)
     this.logger.debug('Session created.')
 
     this.logger.debug('Initializing services...')
     this.initServices()
     this.startKeepAlive()
+  }
+
+  /**
+   * Resolves the `ICertificateStore` to use (Security Admin – Certificate Management):
+   * the one configured in `securityConfiguration.certificateStore`, or a default created
+   * for the current environment (Node vs browser) on first use and cached for the
+   * lifetime of this `Client` instance.
+   *
+   * Called once at startup (`connect()`) rather than lazily inside `SessionHandler`, so
+   * store-creation failures (e.g. PKI directory permission errors) surface immediately.
+   */
+  private async resolveCertificateStore(): Promise<ICertificateStore> {
+    const configured = this.configuration.securityConfiguration?.certificateStore
+    if (configured) return configured
+
+    if (!this.certificateStore) {
+      this.certificateStore = await createDefaultCertificateStore()
+    }
+    return this.certificateStore
   }
 
   /**
@@ -588,7 +614,7 @@ export class Client {
     this.secureChannel = sc
     this.secureChannelFacade = sc
     this.ws = ws
-    this.sessionHandler = new SessionHandler(sc, this.configuration)
+    this.sessionHandler = new SessionHandler(sc, this.configuration, await this.resolveCertificateStore())
 
     // Attempt to reactivate the existing session on the new channel.
     if (this.session) {

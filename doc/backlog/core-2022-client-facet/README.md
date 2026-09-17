@@ -38,7 +38,7 @@ A client claiming conformance to this facet must also conform to all **mandatory
 | ✅ | [base-info-client-estimated-return-time.md](./base-info-client-estimated-return-time.md) | Base Info Client Estimated Return Time |
 | ✅ | [base-info-client-selection-list.md](./base-info-client-selection-list.md) | Base Info Client Selection List |
 | ✅ | [base-services-client-diagnostics.md](./base-services-client-diagnostics.md) | Base Services Client Diagnostics |
-| ❌ | [security-admin-certificate-management.md](./security-admin-certificate-management.md) | Security Admin – Certificate Management |
+| ✅ | [security-admin-certificate-management.md](./security-admin-certificate-management.md) | Security Admin – Certificate Management |
 | ✅ | [session-client-cancel.md](./session-client-cancel.md) | Session Client Cancel |
 | ❌ | [session-client-detect-shutdown.md](./session-client-detect-shutdown.md) | Session Client Detect Shutdown |
 | ✅ | [session-client-impersonate.md](./session-client-impersonate.md) | Session Client Impersonate |

@@ -47,6 +47,7 @@ export { LogRecord } from './utils/logger/logRecord.js';
 export { ConsoleSink } from './utils/logger/consoleSink.js';
 export { LevelName } from './utils/logger/levelName.js';
 export { getLogger, initLoggerProvider } from './utils/logger/loggerProvider.js';
+export { isNodeLike } from './utils/environment.js';
 
 export { WebSocketFascade } from './transports/ws/webSocketFascade.js';
 export type { WebSocketLike } from './transports/ws/webSocketLike.js';
@@ -89,5 +90,15 @@ export {
 
 // Certificate (needed by server for SecurityPolicy.getAlgorithmSymmetric)
 export { Certificate } from './certificates/certificate.js';
+
+// Certificate Management (Security Admin – Certificate Management conformance unit)
+export type { ICertificateStore, CertificateSubject, CertificateValidationResult } from './certificates/iCertificateStore.js';
+export { createDefaultCertificateStore } from './certificates/createDefaultCertificateStore.js';
+export type { CreateDefaultCertificateStoreOptions } from './certificates/createDefaultCertificateStore.js';
+export { IndexedDbCertificateStore } from './certificates/indexedDbCertificateStore.js';
+// FileSystemCertificateStore is intentionally NOT re-exported here: it is Node-only
+// (imports node:fs/promises) and reaching it from this barrel breaks browser bundlers
+// (e.g. Vite fails hard on the named import of 'path' via its browser-external shim).
+// Node consumers get it through `createDefaultCertificateStore()`.
 
 

@@ -15,6 +15,7 @@
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true,
     "ignoreDeprecations": "6.0",
+    "types": ["node"],
     "paths": {
       "opcjs-base": ["./src/index.ts"] // needed for imported schema
     }

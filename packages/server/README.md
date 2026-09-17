@@ -39,6 +39,24 @@ await server.start()
 console.log(`OPC UA server listening at ${server.endpointUrl}`)
 ```
 
+## Certificate Management
+
+`ConfigurationServer.certificateStore` accepts an `ICertificateStore` (from `opcjs-base`) so the server can present its own application instance certificate in `CreateSessionResponse.serverCertificate`:
+
+```ts
+import { ConfigurationServer } from 'opcjs-server'
+import { createDefaultCertificateStore } from 'opcjs-base'
+
+const certificateStore = await createDefaultCertificateStore({ pkiBaseDir: './pki' })
+if (!(await certificateStore.getOwn())) {
+  await certificateStore.generateOwn({ applicationUri: 'urn:example:MyServer', commonName: 'MyServer' })
+}
+
+const config = ConfigurationServer.fromOptions({ productName: 'MyServer', company: 'example', certificateStore })
+```
+
+When `certificateStore` is not configured, `serverCertificate` is `null` (SecurityPolicy None behaviour, unchanged). Validating incoming client certificates (chain/CRL/RBAC) is not implemented yet — see the Security Administration and Security Role Server Authorization conformance units.
+
 ## Server capacities
 
 Documented values for the Core 2022 Server Facet's "Documentation – Core Capacities" conformance unit:

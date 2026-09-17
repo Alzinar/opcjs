@@ -17,6 +17,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   EndpointDescription,
+  type ICertificateStore,
   type IOpcType,
   MessageSecurityModeEnum,
   UserTokenPolicy,
@@ -70,7 +71,23 @@ function makeSessionHandler(cfg: Partial<ConfigurationClient> = {}): SessionHand
   return new SessionHandler(
     makeChannel() as ReturnType<typeof makeChannel>,
     config,
+    makeFakeCertificateStore(),
   )
+}
+
+/** Fake `ICertificateStore` with no own certificate — sufficient for these tests. */
+function makeFakeCertificateStore(): ICertificateStore {
+  return {
+    addTrusted: async () => {},
+    removeTrusted: async () => {},
+    listTrusted: async () => [],
+    reject: async () => {},
+    listRejected: async () => [],
+    getOwn: async () => null,
+    generateOwn: async () => {},
+    renewOwn: async () => {},
+    validate: async () => ({ status: 'trusted' as const }),
+  }
 }
 
 function makeEndpointWith(...tokenTypes: UserTokenTypeEnum[]): EndpointDescription {

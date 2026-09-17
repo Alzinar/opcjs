@@ -51,6 +51,8 @@
     "vitest": "^4.0.18"
   },
   "dependencies": {
-    "fast-xml-parser": "^5.4.1"
+    "@peculiar/x509": "^2.1.0",
+    "fast-xml-parser": "^5.4.1",
+    "reflect-metadata": "^0.2.2"
   }
 }

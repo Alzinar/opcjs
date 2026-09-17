@@ -7,7 +7,7 @@ Each facet has its own folder; each conformance unit has its own document.
 
 | Folder | Facet | Required by | Required CUs | Optional CUs |
 |--------|-------|-------------|--------------|--------------|
-| [core-2022-client-facet/](./core-2022-client-facet/) | Core 2022 Client Facet | Minimum UA Client 2022 Profile | 7 / 7 ✅ | 7 ✅ · 2 ❌ |
+| [core-2022-client-facet/](./core-2022-client-facet/) | Core 2022 Client Facet | Minimum UA Client 2022 Profile | 7 / 7 ✅ | 8 ✅ · 1 ❌ |
 | [ua-tcp-ua-sc-ua-binary/](./ua-tcp-ua-sc-ua-binary/) | UA-TCP UA-SC UA-Binary | Client & Server Core dependency | 3 / 3 ✅ | — |
 | [security-policy-none/](./security-policy-none/) | SecurityPolicy – None | Client & Server Core dependency | 7 / 7 ✅ | 1 / 1 ✅ |
 | [security-time-synchronization/](./security-time-synchronization/) | Security Time Synchronization | Client & Server Core dependency | 1 / 1 ✅ | 1 ✅ · 5 ❌ |
@@ -41,7 +41,7 @@ Each facet has its own folder; each conformance unit has its own document.
 | ✅ | [Base Info Client Estimated Return Time](./core-2022-client-facet/base-info-client-estimated-return-time.md) |
 | ✅ | [Base Info Client Selection List](./core-2022-client-facet/base-info-client-selection-list.md) |
 | ✅ | [Base Services Client Diagnostics](./core-2022-client-facet/base-services-client-diagnostics.md) |
-| ❌ | [Security Admin – Certificate Management](./core-2022-client-facet/security-admin-certificate-management.md) |
+| ✅ | [Security Admin – Certificate Management](./core-2022-client-facet/security-admin-certificate-management.md) |
 | ✅ | [Session Client Cancel](./core-2022-client-facet/session-client-cancel.md) |
 | ✅ | [Session Client Detect Shutdown](./core-2022-client-facet/session-client-detect-shutdown.md) |
 | ✅ | [Session Client Impersonate](./core-2022-client-facet/session-client-impersonate.md) |

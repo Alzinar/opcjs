@@ -58,16 +58,15 @@ Online: https://reference.opcfoundation.org/Core/Part6/v105/docs/6.1
   - `allowSecurityPolicyNone: boolean`
   - `messageSecurityMode: MessageSecurityMode`
   - `allowedUserTokenTypes: UserTokenType[]`
-  - `trustedCAs: Uint8Array[]`
-  - `unknownCertificatePolicy: UnknownCertificatePolicy`
   - `applicationInstanceCertificate?: ApplicationInstanceCertificate`
+  - `certificateStore?: ICertificateStore` / `validateServerCertificate?: (...)` — see [Security Admin – Certificate Management](./security-admin-certificate-management.md)
 - `src/client.ts` — enforces `allowSecurityPolicyNone` and `messageSecurityMode` at connection time.
 - `src/sessions/sessionHandler.ts` — enforces `allowedUserTokenTypes` during `ActivateSession`.
 
 ## Open Items
 
-- Certificate validation against `trustedCAs` is not yet fully implemented.  
-  See [Security Admin – Certificate Management](./security-admin-certificate-management.md) for the optional CU that extends this.
+Certificate validation is now implemented via `ICertificateStore` —
+see [Security Admin – Certificate Management](./security-admin-certificate-management.md) for the optional CU that extends this.
 
 ## Related Conformance Units
 

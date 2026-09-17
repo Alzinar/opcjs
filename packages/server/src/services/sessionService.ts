@@ -60,7 +60,7 @@ export class SessionService {
    *
    * @see OPC UA Part 4 §5.6.2
    */
-  createSession(request: CreateSessionRequest, channelId: number): CreateSessionResponse {
+  async createSession(request: CreateSessionRequest, channelId: number): Promise<CreateSessionResponse> {
     const requestHandle = request.requestHeader?.requestHandle ?? 0
 
     const session = this.sessionManager.createSession(
@@ -75,13 +75,18 @@ export class SessionService {
     serverSignature.algorithm = null
     serverSignature.signature = null
 
+    // Security Admin – Certificate Management (OPC 10000-6 §6.2): serve this
+    // server's own application instance certificate when a store is configured.
+    // Full incoming client-certificate validation is out of scope here.
+    const own = this.config.certificateStore ? await this.config.certificateStore.getOwn() : null
+
     const response = new CreateSessionResponse()
     response.responseHeader = makeResponseHeader(requestHandle)
     response.sessionId = session.sessionId
     response.authenticationToken = session.authenticationToken
     response.revisedSessionTimeout = session.revisedTimeoutMs
     response.serverNonce = session.serverNonce
-    response.serverCertificate = null
+    response.serverCertificate = own?.certificate ?? null
     response.serverEndpoints = [endpoint]
     response.serverSoftwareCertificates = []
     response.serverSignature = serverSignature

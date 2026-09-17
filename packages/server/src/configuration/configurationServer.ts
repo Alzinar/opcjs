@@ -4,6 +4,7 @@ import {
   Configuration,
   Decoder,
   Encoder,
+  ICertificateStore,
   ILoggerFactory,
   LoggerFactory,
   registerBinaryDecoders,
@@ -36,6 +37,13 @@ export type ServerOptions = {
   maxSessions?: number
   /** Custom logger factory. When omitted a console logger is used. */
   loggerFactory?: ILoggerFactory
+  /**
+   * Certificate store used to serve this server's own application instance
+   * certificate (Security Admin – Certificate Management conformance unit —
+   * OPC UA Part 6, §6.2). When omitted, `CreateSessionResponse.serverCertificate`
+   * remains `null` (current default behaviour).
+   */
+  certificateStore?: ICertificateStore
 }
 
 /**
@@ -64,6 +72,13 @@ export class ConfigurationServer extends Configuration {
   /** Maximum number of concurrent sessions. Default: 100. */
   public maxSessions = 100
 
+  /**
+   * Certificate store used to serve this server's own application instance
+   * certificate (Security Admin – Certificate Management conformance unit).
+   * When unset, `CreateSessionResponse.serverCertificate` stays `null`.
+   */
+  public certificateStore?: ICertificateStore
+
   /** Creates a {@link ConfigurationServer} from a plain {@link ServerOptions} bag. */
   public static fromOptions(options: ServerOptions): ConfigurationServer {
     const company = options.company ?? 'opcua'
@@ -74,6 +89,7 @@ export class ConfigurationServer extends Configuration {
     if (options.endpointPath !== undefined) cfg.endpointPath = options.endpointPath
     if (options.sessionTimeoutMs !== undefined) cfg.maxSessionTimeoutMs = options.sessionTimeoutMs
     if (options.maxSessions !== undefined) cfg.maxSessions = options.maxSessions
+    if (options.certificateStore !== undefined) cfg.certificateStore = options.certificateStore
     return cfg
   }
 

@@ -22,6 +22,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import {
   EndpointDescription,
+  type ICertificateStore,
   type IOpcType,
   NodeId,
   StatusCode,
@@ -52,6 +53,21 @@ function makeConfig(cfg: Partial<ConfigurationClient> = {}): ConfigurationClient
   const config = ConfigurationClient.getSimple('TestClient', 'test')
   Object.assign(config, cfg)
   return config
+}
+
+/** Fake `ICertificateStore` with no own certificate — sufficient for these tests. */
+function makeFakeCertificateStore(): ICertificateStore {
+  return {
+    addTrusted: vi.fn(async () => {}),
+    removeTrusted: vi.fn(async () => {}),
+    listTrusted: vi.fn(async () => []),
+    reject: vi.fn(async () => {}),
+    listRejected: vi.fn(async () => []),
+    getOwn: vi.fn(async () => null),
+    generateOwn: vi.fn(async () => {}),
+    renewOwn: vi.fn(async () => {}),
+    validate: vi.fn(async () => ({ status: 'trusted' as const })),
+  }
 }
 
 /** Minimal endpoint that satisfies the anonymous-token lookup in Session.activateSession. */
@@ -111,7 +127,7 @@ function makeFakeSessionResult() {
 
 describe('SessionHandler – OPC UA 1.0 cert fallback (createNewSession)', () => {
   it('succeeds without fallback when CreateSession returns Good', async () => {
-    const handler = new SessionHandler(makeChannel() as ReturnType<typeof makeChannel>, makeConfig())
+    const handler = new SessionHandler(makeChannel() as ReturnType<typeof makeChannel>, makeConfig(), makeFakeCertificateStore())
     const { createSessionMock } = injectSessionService(handler, [
       { result: makeFakeSessionResult() },
     ])
@@ -127,6 +143,7 @@ describe('SessionHandler – OPC UA 1.0 cert fallback (createNewSession)', () =>
     const handler = new SessionHandler(
       makeChannel() as ReturnType<typeof makeChannel>,
       makeConfig({ securityConfiguration: { applicationInstanceCertificate: cert } }),
+      makeFakeCertificateStore(),
     )
     const { createSessionMock } = injectSessionService(handler, [
       { result: makeFakeSessionResult() },
@@ -143,6 +160,7 @@ describe('SessionHandler – OPC UA 1.0 cert fallback (createNewSession)', () =>
     const handler = new SessionHandler(
       makeChannel() as ReturnType<typeof makeChannel>,
       makeConfig({ securityConfiguration: { applicationInstanceCertificate: cert } }),
+      makeFakeCertificateStore(),
     )
     const { createSessionMock } = injectSessionService(handler, [
       { throws: new CertificateRequiredError(StatusCode.BadCertificateInvalid) },
@@ -156,7 +174,7 @@ describe('SessionHandler – OPC UA 1.0 cert fallback (createNewSession)', () =>
   })
 
   it('propagates CertificateRequiredError when no cert is configured', async () => {
-    const handler = new SessionHandler(makeChannel() as ReturnType<typeof makeChannel>, makeConfig())
+    const handler = new SessionHandler(makeChannel() as ReturnType<typeof makeChannel>, makeConfig(), makeFakeCertificateStore())
     injectSessionService(handler, [
       { throws: new CertificateRequiredError(StatusCode.BadCertificateInvalid) },
     ])
@@ -171,6 +189,7 @@ describe('SessionHandler – OPC UA 1.0 cert fallback (createNewSession)', () =>
     const handler = new SessionHandler(
       makeChannel() as ReturnType<typeof makeChannel>,
       makeConfig({ securityConfiguration: { applicationInstanceCertificate: cert } }),
+      makeFakeCertificateStore(),
     )
     const otherError = new Error('BadTimeout')
     const { createSessionMock } = injectSessionService(handler, [
@@ -188,6 +207,7 @@ describe('SessionHandler – OPC UA 1.0 cert fallback (createNewSession)', () =>
       const handler = new SessionHandler(
         makeChannel() as ReturnType<typeof makeChannel>,
         makeConfig({ securityConfiguration: { applicationInstanceCertificate: cert } }),
+        makeFakeCertificateStore(),
       )
       const { createSessionMock } = injectSessionService(handler, [
         { throws: new CertificateRequiredError(code as number) },

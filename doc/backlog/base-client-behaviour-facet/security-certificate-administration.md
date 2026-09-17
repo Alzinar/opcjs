@@ -8,7 +8,7 @@
 
 - `SecurityConfiguration.applicationInstanceCertificate` (`packages/client/src/securityConfiguration.ts`) lets an administrator configure a site-specific `ApplicationInstanceCertificate`; `SessionHandler.createNewSession()` now sends it proactively as `clientCertificate` on every `CreateSession` request instead of only as a 1.0-compatibility retry fallback.
 - `SecurityConfiguration.privateKey` stores the matching private key alongside the certificate. It is not yet used to compute request signatures since this client only implements `SecurityPolicy#None` (which does not sign requests) — it will be wired in once a signing security policy is added.
-- `trustedCAs` / `unknownCertificatePolicy` (pre-existing) remain available to configure a trusted CA list for server certificate validation.
+- `trustedCAs` / `unknownCertificatePolicy` were removed from `SecurityConfiguration`: the trusted CA list now lives in the shared `ICertificateStore` (`addTrusted`/`listTrusted`), and unverifiable-certificate handling is now the caller-overridable `SecurityConfiguration.validateServerCertificate` callback — see [Security Admin – Certificate Management](../core-2022-client-facet/security-admin-certificate-management.md).
 - Full PKI directory management, CRL/OCSP revocation checking and certificate generation/renewal are out of scope for this CU — see the separate optional [Security Admin – Certificate Management](../core-2022-client-facet/security-admin-certificate-management.md) CU, which remains ❌.
 
 ## Description

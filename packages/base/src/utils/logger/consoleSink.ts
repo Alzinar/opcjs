@@ -2,15 +2,7 @@
 import { LogRecord } from "./logRecord";
 import { ISink } from "./iSink";
 import { LevelName } from "./levelName";
-
-
-export function isNodeLike(): boolean {
-  // Works in browsers and Node. Avoids reference errors.
-  const g = globalThis as { process?: { versions?: { node?: string } } };
-  return typeof g.process !== "undefined" &&
-    typeof g.process?.versions !== "undefined" &&
-    typeof g.process?.versions?.node !== "undefined";
-}
+import { isNodeLike } from "../environment.js";
 
 export function supportsAnsiColors(): boolean {
   // Basic heuristic for Node TTY
