@@ -14,7 +14,7 @@ Each facet has its own folder; each conformance unit has its own document.
 | [user-token-anonymous-client/](./user-token-anonymous-client/) | User Token – Anonymous Client | Core 2022 Client Facet (dependency) | 1 / 1 ✅ | — |
 | [user-token-anonymous-server/](./user-token-anonymous-server/) | User Token – Anonymous Server | Core 2022 Server Facet (dependency) | 1 / 1 ✅ | — |
 | [user-token-user-name-password-server/](./user-token-user-name-password-server/) | User Token – User Name Password Server | Core 2022 Server Facet (dependency) | 0 / 2 ❌ | 1 ❌ |
-| [minimum-ua-2025-client-facet/](./minimum-ua-2025-client-facet/) | Minimum UA 2025 Client Facet | Minimum UA Client 2025 Profile | 0 / 2 ❌ | 1 ❌ |
+| [minimum-ua-2025-client-facet/](./minimum-ua-2025-client-facet/) | Minimum UA 2025 Client Facet | Minimum UA Client 2025 Profile | 2 / 2 ✅ | 1 ❌ |
 | [base-client-behaviour-facet/](./base-client-behaviour-facet/) | Base Client Behaviour Facet | Standard UA Client Profiles | 7 / 7 ✅ | — |
 | [core-2022-server-facet/](./core-2022-server-facet/) | Core 2022 Server Facet | Nano/Standard UA Server Profiles | 15 / 15 ✅ | 18 ✅ · 4 ❌ |
 | [embedded-datachange-subscription-2022-server-facet/](./embedded-datachange-subscription-2022-server-facet/) | Embedded DataChange Subscription 2022 Server Facet | Micro/Standard UA Server Profiles | 10 / 10 ✅ | — |
@@ -100,8 +100,8 @@ Each facet has its own folder; each conformance unit has its own document.
 
 | Status | Conformance Unit |
 |--------|-----------------|
-| ❌ | [Discovery Client Configure Endpoint](./minimum-ua-2025-client-facet/discovery-client-configure-endpoint.md) |
-| ❌ | [Security Default ApplicationInstance Certificate](./minimum-ua-2025-client-facet/security-default-application-instance-certificate.md) |
+| ✅ | [Discovery Client Configure Endpoint](./minimum-ua-2025-client-facet/discovery-client-configure-endpoint.md) |
+| ✅ | [Security Default ApplicationInstance Certificate](./minimum-ua-2025-client-facet/security-default-application-instance-certificate.md) |
 
 #### Minimum UA 2025 Client Facet — Optional
 

@@ -13,8 +13,8 @@ It supersedes the Minimum UA Client Facet, making support for ECC security polic
 
 | Status | Document | Conformance Unit |
 |--------|----------|-----------------|
-| ❌ | [discovery-client-configure-endpoint.md](./discovery-client-configure-endpoint.md) | Discovery Client Configure Endpoint |
-| ❌ | [security-default-application-instance-certificate.md](./security-default-application-instance-certificate.md) | Security Default ApplicationInstance Certificate |
+| ✅ | [discovery-client-configure-endpoint.md](./discovery-client-configure-endpoint.md) | Discovery Client Configure Endpoint |
+| ✅ | [security-default-application-instance-certificate.md](./security-default-application-instance-certificate.md) | Security Default ApplicationInstance Certificate |
 
 ## Optional Conformance Units
 

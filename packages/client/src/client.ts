@@ -492,8 +492,28 @@ export class Client {
 
     if (!this.certificateStore) {
       this.certificateStore = await createDefaultCertificateStore()
+      await this.ensureDefaultOwnCertificate(this.certificateStore)
     }
     return this.certificateStore
+  }
+
+  /**
+   * Security Default ApplicationInstance Certificate (OPC 10000-6 §6.2): ensures the
+   * default certificate store always holds a valid own `ApplicationInstanceCertificate`,
+   * generating a self-signed one on first use when none exists yet — so every deployed
+   * instance has a unique certificate identity without requiring manual installation steps.
+   *
+   * Only applied to the client's own default store (Node `FileSystemCertificateStore` /
+   * browser `IndexedDbCertificateStore`); a caller-supplied `securityConfiguration.certificateStore`
+   * is assumed to already be provisioned by its owner.
+   */
+  private async ensureDefaultOwnCertificate(store: ICertificateStore): Promise<void> {
+    if (await store.getOwn()) return
+    this.logger.info('No ApplicationInstanceCertificate found in the default certificate store; generating one.')
+    await store.generateOwn({
+      applicationUri: this.configuration.applicationUri,
+      commonName: this.configuration.applicationName,
+    })
   }
 
   /**
