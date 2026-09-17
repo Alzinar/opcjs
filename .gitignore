@@ -12,6 +12,9 @@ node_modules
 .env.*
 !.env.example
 
+# generated/received certificates for the ref/ reference implementations
+/tmp/
+
 # IDE
 .vscode/
 .idea/
@@ -31,3 +34,7 @@ coverage
 # macOS
 .DS_Store
 packages/client/tests/bin/uaNetRefServer/core
+
+# .NET
+ref/**/bin/
+ref/**/obj/

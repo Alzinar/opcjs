@@ -32,6 +32,7 @@
     "build": "npx nx run-many -t build",
     "verify": "npx nx run-many -t verify",
     "test": "npx nx run-many -t test:unit",
+    "test:ref": "bash ref/test.sh",
     "graph": "npx nx graph",
     "generate:services": "node ./src/generators/runServicesGenerator.js"
   },
