@@ -14,6 +14,7 @@
   <ItemGroup>
     <PackageReference Include="OPCFoundation.NetStandard.Opc.Ua.Configuration" Version="1.5.378.176" />
     <PackageReference Include="OPCFoundation.NetStandard.Opc.Ua.Server" Version="1.5.378.176" />
+    <PackageReference Include="UA.NETStandard.WebSocket" Version="1.5.0-alpha.1" />
   </ItemGroup>
 
 </Project>

@@ -3,7 +3,6 @@ using Opc.Ua;
 using Opc.Ua.Bindings;
 using Opc.Ua.Configuration;
 using RefServer;
-using RefServer.WebSockets;
 
 const string applicationName = "RefServer";
 const int tcpPort = 62543;
