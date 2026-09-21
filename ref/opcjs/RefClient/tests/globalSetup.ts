@@ -19,6 +19,7 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 let serverProcess: ChildProcess | null = null;
+let open62541ServerProcess: ChildProcess | null = null;
 
 const serverLogging = process.env.OPCUA_SERVER_LOGGING === '1';
 
@@ -47,6 +48,71 @@ function prefixLines(text: string, level: string, component: string): string {
         .join('\n');
 }
 
+function startServer(
+    name: string,
+    command: string,
+    args: string[],
+    cwd: string,
+    readyMarker: string,
+): Promise<ChildProcess> {
+    return new Promise<ChildProcess>((resolve, reject) => {
+        let started = false;
+
+        const proc = spawn(command, args, {
+            cwd,
+            stdio: ['ignore', 'pipe', 'pipe'],
+        });
+
+        const startupTimeout = setTimeout(() => {
+            if (!started) {
+                reject(new Error(`Timed out waiting 60 s for "${readyMarker}" from ${name}`));
+            }
+        }, 60_000);
+
+        proc.stdout!.on('data', (chunk: Buffer) => {
+            const text = chunk.toString();
+            if (serverLogging) {
+                process.stderr.write(prefixLines(text, 'DEBUG', name));
+            }
+            if (!started && text.includes(readyMarker)) {
+                started = true;
+                clearTimeout(startupTimeout);
+                log('DEBUG', 'globalSetup', `${name} is ready.`);
+                resolve(proc);
+            }
+        });
+
+        proc.stderr!.on('data', (chunk: Buffer) => {
+            if (serverLogging) {
+                process.stderr.write(prefixLines(chunk.toString(), 'WARN', name));
+            }
+        });
+
+        proc.on('error', (err) => {
+            clearTimeout(startupTimeout);
+            if (!started) {
+                reject(new Error(`Failed to start ${name}: ${err.message}`));
+            }
+        });
+
+        proc.on('exit', (code) => {
+            clearTimeout(startupTimeout);
+            // Only reject if the process exits before startup completed.
+            if (!started) {
+                reject(new Error(`${name} exited unexpectedly with code ${code}`));
+            }
+        });
+    });
+}
+
+async function killLeftovers(pattern: string): Promise<void> {
+    await new Promise<void>((resolve) => {
+        const killer = spawn('pkill', ['-9', '-f', pattern], { stdio: 'ignore' });
+        killer.on('exit', () => resolve());
+        killer.on('error', () => resolve()); // pkill not available on all platforms
+    });
+}
+
 export async function setup(): Promise<void> {
     if (process.env.OPCUA_EXTERNAL_SERVER === '1') {
         console.log('[globalSetup] OPCUA_EXTERNAL_SERVER=1 – skipping server start. Tests requiring a server will fail if none is running.');
@@ -54,68 +120,24 @@ export async function setup(): Promise<void> {
     }
 
     const serverDir = path.resolve(__dirname, '../../../uaNet/RefServer');
+    const open62541ServerDir = path.resolve(__dirname, '../../../open62541/RefServer');
 
-    log('DEBUG', 'globalSetup', 'Killing any leftover RefServer process...');
-    // Kill any leftover server process from a previous (interrupted) run.
+    log('DEBUG', 'globalSetup', 'Killing any leftover server processes...');
+    // Kill any leftover server processes from a previous (interrupted) run.
     // `dotnet run` produces an apphost binary at bin/<Config>/<tfm>/RefServer, while a
     // published/copied build is invoked as `dotnet RefServer.dll` — match both.
-    await new Promise<void>((resolve) => {
-        const killer = spawn('pkill', ['-9', '-f', 'uaNet/RefServer/bin/.*/RefServer$|RefServer\\.dll'], { stdio: 'ignore' });
-        killer.on('exit', () => resolve());
-        killer.on('error', () => resolve()); // pkill not available on all platforms
-    });
-    // Give the OS a moment to release the port.
+    await killLeftovers('uaNet/RefServer/bin/.*/RefServer$|RefServer\\.dll');
+    await killLeftovers('open62541/RefServer/build/RefServer$');
+    // Give the OS a moment to release the ports.
     await new Promise<void>((resolve) => setTimeout(resolve, 500));
 
     log('DEBUG', 'globalSetup', 'Starting RefServer...');
-    await new Promise<void>((resolve, reject) => {
-        let started = false;
+    serverProcess = await startServer('RefServer', 'dotnet', ['run'], serverDir, 'Server started.');
 
-        serverProcess = spawn('dotnet', ['run'], {
-            cwd: serverDir,
-            stdio: ['ignore', 'pipe', 'pipe'],
-        });
-
-        const startupTimeout = setTimeout(() => {
-            if (!started) {
-                reject(new Error('Timed out waiting 60 s for "Server started." from RefServer'));
-            }
-        }, 60_000);
-
-        serverProcess.stdout!.on('data', (chunk: Buffer) => {
-            const text = chunk.toString();
-            if (serverLogging) {
-                process.stderr.write(prefixLines(text, 'DEBUG', 'RefServer'));
-            }
-            if (!started && text.includes('Server started.')) {
-                started = true;
-                clearTimeout(startupTimeout);
-                log('DEBUG', 'globalSetup', 'RefServer is ready.');
-                resolve();
-            }
-        });
-
-        serverProcess.stderr!.on('data', (chunk: Buffer) => {
-            if (serverLogging) {
-                process.stderr.write(prefixLines(chunk.toString(), 'WARN', 'RefServer'));
-            }
-        });
-
-        serverProcess.on('error', (err) => {
-            clearTimeout(startupTimeout);
-            if (!started) {
-                reject(new Error(`Failed to start RefServer: ${err.message}`));
-            }
-        });
-
-        serverProcess.on('exit', (code) => {
-            clearTimeout(startupTimeout);
-            // Only reject if the process exits before startup completed.
-            if (!started) {
-                reject(new Error(`RefServer exited unexpectedly with code ${code}`));
-            }
-        });
-    });
+    log('DEBUG', 'globalSetup', 'Starting open62541 RefServer...');
+    open62541ServerProcess = await startServer(
+        'open62541RefServer', path.join(open62541ServerDir, 'build', 'RefServer'), [], open62541ServerDir, 'Server started.',
+    );
 }
 
 export async function teardown(): Promise<void> {
@@ -133,11 +155,18 @@ export async function teardown(): Promise<void> {
         });
         // `dotnet run` spawns the apphost as a separate child process, which is not
         // terminated by killing the `dotnet run` process itself — clean it up too.
-        await new Promise<void>((resolve) => {
-            const killer = spawn('pkill', ['-9', '-f', 'uaNet/RefServer/bin/.*/RefServer$'], { stdio: 'ignore' });
-            killer.on('exit', () => resolve());
-            killer.on('error', () => resolve());
-        });
+        await killLeftovers('uaNet/RefServer/bin/.*/RefServer$');
         log('DEBUG', 'globalSetup', 'RefServer stopped.');
+    }
+
+    if (open62541ServerProcess) {
+        log('DEBUG', 'globalSetup', 'Stopping open62541 RefServer...');
+        const proc = open62541ServerProcess;
+        open62541ServerProcess = null;
+        await new Promise<void>((resolve) => {
+            proc.on('exit', () => resolve());
+            proc.kill('SIGKILL');
+        });
+        log('DEBUG', 'globalSetup', 'open62541 RefServer stopped.');
     }
 }

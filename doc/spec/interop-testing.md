@@ -15,3 +15,6 @@ The goal of interop testing is to test our client and server against other frame
 
 # Tested features:
 - Read integer
+  - `ref/uaNet/RefServer` (UA-.NETStandard) vs `opcjs-client`: done (`ref/opcjs/RefClient`).
+  - `ref/open62541/RefServer` (open62541) vs `opcjs-client`: done (`ref/opcjs/RefClient`).
+  - opcjs-client vs opcjs-server, and 3rd-party clients vs opcjs-server: not yet done.

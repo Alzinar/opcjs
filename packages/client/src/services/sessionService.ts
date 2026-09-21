@@ -70,9 +70,8 @@ export class SessionService extends ServiceBase {
             throw new Error(`CreateSessionRequest failed: ${StatusCodeToString(serviceResult)}`);
         }
 
-        // The URL the client actually used to connect.  Prepend the OPC UA scheme
-        // prefix so it is parseable by the standard URL constructor.
-        const clientConnectionUrl = new URL('opc.' + this.secureChannel.getEndpointUrl())
+        // The URL the client actually used to connect.
+        const clientConnectionUrl = new URL(this.secureChannel.getEndpointUrl())
         const securityMode = this.secureChannel.getSecurityMode()
         const securityPolicyUri = this.secureChannel.getSecurityPolicy()
 
@@ -88,11 +87,16 @@ export class SessionService extends ServiceBase {
             return url
         }
 
+        // Some servers prefix the transport scheme with "opc." (e.g. "opc.wss:",
+        // per OPC UA Part 6), others report the bare WebSocket scheme (e.g.
+        // open62541's "wss:") — strip it from both sides so either form matches.
+        const stripOpcSchemePrefix = (protocol: string): string => protocol.replace(/^opc\./, '')
+
         // Match on protocol and path only; host and port are normalized away so
         // that internally-addressed endpoints are still found.
         const serverEndpoint = castedResponse?.serverEndpoints?.find(currentEndpoint => {
             const normalized = normalizeEndpointUrl(currentEndpoint.endpointUrl as string)
-            return normalized.protocol === clientConnectionUrl.protocol
+            return stripOpcSchemePrefix(normalized.protocol) === stripOpcSchemePrefix(clientConnectionUrl.protocol)
                 && normalized.pathname === clientConnectionUrl.pathname
                 && currentEndpoint.securityMode === securityMode
                 && currentEndpoint.securityPolicyUri === securityPolicyUri

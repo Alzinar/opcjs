@@ -5,8 +5,10 @@ Reference implementations used for cross-SDK OPC UA interoperability testing.
 - [`uaNet/RefServer`](uaNet/README.md) — a minimal OPC UA server built from scratch with
   the OPC Foundation UA-.NETStandard NuGet packages, exposing a single `Integer` variable
   over both `opc.tcp://` and `opc.wss://`.
+- [`open62541/RefServer`](open62541/README.md) — the same minimal `Integer` variable,
+  built from scratch with the open62541 C library, over both `opc.tcp://` and `opc.wss://`.
 - [`opcjs/RefClient`](opcjs/README.md) — a minimal OPC UA client built with `opcjs-client`,
-  used to exercise `RefServer` (and, over time, other 3rd-party reference servers/clients).
+  used to exercise both RefServers (and, over time, other 3rd-party reference servers/clients).
 
 ## Certificates
 
@@ -18,8 +20,8 @@ any time to reset every implementation's PKI state.
 ## Running the test suite
 
 The tests live in `ref/opcjs/RefClient/tests` (Vitest). A `globalSetup.ts` automatically
-starts `RefServer` (`dotnet run`) before the suite and stops it afterward — no manual
-server setup is required.
+starts both `uaNet/RefServer` (`dotnet run`) and the prebuilt `open62541/RefServer` binary
+before the suite and stops them afterward — no manual server setup is required.
 
 ### One-shot: build + run everything + clean up
 
@@ -30,10 +32,11 @@ npm run test:ref
 ```
 
 Runs [`ref/test.sh`](test.sh), which builds `opcjs-base`/`opcjs-client` (via Nx, so a
-step is skipped when already up to date), builds `RefServer`, installs `RefClient`'s
-dependencies, and runs its full test suite — then always stops any leftover server
-process and deletes the generated-certificates folder (`/tmp/`) afterward, whether the
-tests passed or failed.
+step is skipped when already up to date), builds `uaNet/RefServer` (`dotnet build`) and
+`open62541/RefServer` (`cmake`/`ninja`, skipped once already configured), installs
+`RefClient`'s dependencies, and runs its full test suite — then always stops any leftover
+server process and deletes the generated-certificates folder (`/tmp/`) afterward, whether
+the tests passed or failed.
 
 ### Run all tests
 

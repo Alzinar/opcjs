@@ -6,6 +6,12 @@ export type CreateDefaultCertificateStoreOptions = {
   pkiBaseDir?: string
   /** IndexedDB database name for the browser `IndexedDbCertificateStore`. Default: `'opcjs-certificate-store'`. */
   databaseName?: string
+  /**
+   * How to treat a server certificate that isn't already in the trust list: `'reject'`
+   * (default) or `'trust'` (accept and persist it, e.g. for trust-on-first-use test/dev
+   * setups). Forwarded to the underlying store implementation.
+   */
+  unknownCertificatePolicy?: 'reject' | 'trust'
 }
 
 /**
@@ -22,9 +28,13 @@ export async function createDefaultCertificateStore(
 ): Promise<ICertificateStore> {
   if (isNodeLike()) {
     const { FileSystemCertificateStore } = await import('./fileSystemCertificateStore.js')
-    return new FileSystemCertificateStore(options.pkiBaseDir ?? './pki')
+    return new FileSystemCertificateStore(options.pkiBaseDir ?? './pki', {
+      unknownCertificatePolicy: options.unknownCertificatePolicy,
+    })
   }
 
   const { IndexedDbCertificateStore } = await import('./indexedDbCertificateStore.js')
-  return new IndexedDbCertificateStore(options.databaseName ?? 'opcjs-certificate-store')
+  return new IndexedDbCertificateStore(options.databaseName ?? 'opcjs-certificate-store', {
+    unknownCertificatePolicy: options.unknownCertificatePolicy,
+  })
 }

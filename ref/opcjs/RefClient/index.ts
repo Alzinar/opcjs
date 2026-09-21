@@ -18,13 +18,20 @@ export const endpointUrl = 'wss://localhost:62544/RefServer/';
 // RefServer namespace index for its custom "http://opcjs.dev/UA/RefServer/" namespace.
 export const integerNodeId = NodeId.newString(2, 'Integer');
 
+// ref/open62541/RefServer's wss:// endpoint (libwebsockets binds directly to a
+// numeric IP, "localhost" is rejected — see ref/open62541/RefServer/src/main.c).
+export const open62541EndpointUrl = 'wss://127.0.0.1:62546/RefServer';
+export const open62541IntegerNodeId = NodeId.newString(2, 'Integer');
+
 // Shared, easily-gitignored location for every ref/ implementation's generated/received
 // certificates (see /tmp/ in .gitignore).
 const pkiBaseDir = path.resolve(__dirname, '../../..', 'tmp', 'ref', 'opcjs', 'RefClient', 'pki');
 
-export async function createClient(): Promise<Client> {
+async function createClientFor(endpoint: string): Promise<Client> {
   const configuration = ConfigurationClient.getSimple('RefClient', 'opcjs');
-  const certificateStore = await createDefaultCertificateStore({ pkiBaseDir });
+  // Reference servers use self-signed certificates; trust them on first use rather
+  // than requiring them to be pre-installed in the trust list.
+  const certificateStore = await createDefaultCertificateStore({ pkiBaseDir, unknownCertificatePolicy: 'trust' });
 
   // Supplying our own certificateStore opts out of Client's automatic own-certificate
   // generation (it assumes a caller-supplied store is already provisioned), so replicate
@@ -37,12 +44,20 @@ export async function createClient(): Promise<Client> {
   }
 
   configuration.securityConfiguration = { certificateStore };
-  return new Client(endpointUrl, configuration, UserIdentity.newAnonymous());
+  return new Client(endpoint, configuration, UserIdentity.newAnonymous());
 }
 
-/** Reads the `Integer` variable from RefServer and returns its value. */
-export async function readInteger(client: Client): Promise<number> {
-  const results = await client.read([integerNodeId]);
+export async function createClient(): Promise<Client> {
+  return createClientFor(endpointUrl);
+}
+
+export async function createOpen62541Client(): Promise<Client> {
+  return createClientFor(open62541EndpointUrl);
+}
+
+/** Reads the Value attribute of `nodeId` from `client` and returns it. */
+export async function readInteger(client: Client, nodeId: NodeId = integerNodeId): Promise<number> {
+  const results = await client.read([nodeId]);
   const result = results[0];
 
   if (result?.statusCode !== StatusCode.Good) {
