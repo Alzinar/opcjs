@@ -1,7 +1,7 @@
 {
-  "name": "ref-client",
+  "name": "ref-server",
   "version": "1.0.0",
-  "description": "Reference OPC UA client built with opcjs, used to exercise RefServer and other reference/3rd-party OPC UA servers",
+  "description": "Reference OPC UA server built with opcjs-server, used to exercise RefClient (and, over time, other reference/3rd-party OPC UA clients)",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
@@ -9,13 +9,11 @@
     "start": "node dist/index.js",
     "start:build": "npm run build && npm start",
     "dev": "tsx index.ts",
-    "clean": "rm -rf dist",
-    "test": "vitest run",
-    "test:dev": "vitest"
+    "clean": "rm -rf dist"
   },
   "keywords": [
     "opcua",
-    "client",
+    "server",
     "nodejs",
     "typescript"
   ],
@@ -23,14 +21,11 @@
   "license": "MIT",
   "dependencies": {
     "opcjs-base": "file:../../../packages/base",
-    "opcjs-client": "file:../../../packages/client",
-    "ws": "^8.18.0"
+    "opcjs-server": "file:../../../packages/server"
   },
   "devDependencies": {
     "@types/node": "^22.10.5",
-    "@types/ws": "^8.5.13",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.3",
-    "vitest": "^4.0.18"
+    "typescript": "^5.7.3"
   }
 }

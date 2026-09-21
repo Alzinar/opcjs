@@ -7,6 +7,8 @@ Reference implementations used for cross-SDK OPC UA interoperability testing.
   over both `opc.tcp://` and `opc.wss://`.
 - [`open62541/RefServer`](open62541/README.md) — the same minimal `Integer` variable,
   built from scratch with the open62541 C library, over both `opc.tcp://` and `opc.wss://`.
+- [`opcjs/RefServer`](opcjs/README.md#refserver) — the same minimal `Integer` variable,
+  built with `opcjs-server`, over an unencrypted `ws://` (no TLS support yet).
 - [`opcjs/RefClient`](opcjs/README.md) — a minimal OPC UA client built with `opcjs-client`,
   used to exercise both RefServers (and, over time, other 3rd-party reference servers/clients).
 
@@ -20,8 +22,9 @@ any time to reset every implementation's PKI state.
 ## Running the test suite
 
 The tests live in `ref/opcjs/RefClient/tests` (Vitest). A `globalSetup.ts` automatically
-starts both `uaNet/RefServer` (`dotnet run`) and the prebuilt `open62541/RefServer` binary
-before the suite and stops them afterward — no manual server setup is required.
+starts `uaNet/RefServer` (`dotnet run`), the prebuilt `open62541/RefServer` binary, and the
+built `opcjs/RefServer` (`node dist/index.js`) before the suite and stops them afterward —
+no manual server setup is required.
 
 ### One-shot: build + run everything + clean up
 
@@ -31,12 +34,12 @@ From the repository root:
 npm run test:ref
 ```
 
-Runs [`ref/test.sh`](test.sh), which builds `opcjs-base`/`opcjs-client` (via Nx, so a
-step is skipped when already up to date), builds `uaNet/RefServer` (`dotnet build`) and
-`open62541/RefServer` (`cmake`/`ninja`, skipped once already configured), installs
-`RefClient`'s dependencies, and runs its full test suite — then always stops any leftover
-server process and deletes the generated-certificates folder (`/tmp/`) afterward, whether
-the tests passed or failed.
+Runs [`ref/test.sh`](test.sh), which builds `opcjs-base`/`opcjs-client`/`opcjs-server`
+(via Nx, so a step is skipped when already up to date), builds `uaNet/RefServer`
+(`dotnet build`), `open62541/RefServer` (`cmake`/`ninja`, skipped once already configured),
+and `opcjs/RefServer` (`npm install && npm run build`), installs `RefClient`'s dependencies,
+and runs its full test suite — then always stops any leftover server process and deletes the
+generated-certificates folder (`/tmp/`) afterward, whether the tests passed or failed.
 
 ### Run all tests
 

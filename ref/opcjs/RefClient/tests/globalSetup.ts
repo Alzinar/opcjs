@@ -20,6 +20,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 let serverProcess: ChildProcess | null = null;
 let open62541ServerProcess: ChildProcess | null = null;
+let opcjsServerProcess: ChildProcess | null = null;
 
 const serverLogging = process.env.OPCUA_SERVER_LOGGING === '1';
 
@@ -121,6 +122,7 @@ export async function setup(): Promise<void> {
 
     const serverDir = path.resolve(__dirname, '../../../uaNet/RefServer');
     const open62541ServerDir = path.resolve(__dirname, '../../../open62541/RefServer');
+    const opcjsServerDir = path.resolve(__dirname, '../../../opcjs/RefServer');
 
     log('DEBUG', 'globalSetup', 'Killing any leftover server processes...');
     // Kill any leftover server processes from a previous (interrupted) run.
@@ -128,6 +130,7 @@ export async function setup(): Promise<void> {
     // published/copied build is invoked as `dotnet RefServer.dll` — match both.
     await killLeftovers('uaNet/RefServer/bin/.*/RefServer$|RefServer\\.dll');
     await killLeftovers('open62541/RefServer/build/RefServer$');
+    await killLeftovers('opcjs/RefServer/dist/index\\.js');
     // Give the OS a moment to release the ports.
     await new Promise<void>((resolve) => setTimeout(resolve, 500));
 
@@ -137,6 +140,11 @@ export async function setup(): Promise<void> {
     log('DEBUG', 'globalSetup', 'Starting open62541 RefServer...');
     open62541ServerProcess = await startServer(
         'open62541RefServer', path.join(open62541ServerDir, 'build', 'RefServer'), [], open62541ServerDir, 'Server started.',
+    );
+
+    log('DEBUG', 'globalSetup', 'Starting opcjs RefServer...');
+    opcjsServerProcess = await startServer(
+        'opcjsRefServer', 'node', [path.join(opcjsServerDir, 'dist', 'index.js')], opcjsServerDir, 'Server started.',
     );
 }
 
@@ -168,5 +176,16 @@ export async function teardown(): Promise<void> {
             proc.kill('SIGKILL');
         });
         log('DEBUG', 'globalSetup', 'open62541 RefServer stopped.');
+    }
+
+    if (opcjsServerProcess) {
+        log('DEBUG', 'globalSetup', 'Stopping opcjs RefServer...');
+        const proc = opcjsServerProcess;
+        opcjsServerProcess = null;
+        await new Promise<void>((resolve) => {
+            proc.on('exit', () => resolve());
+            proc.kill('SIGKILL');
+        });
+        log('DEBUG', 'globalSetup', 'opcjs RefServer stopped.');
     }
 }
