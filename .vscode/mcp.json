@@ -1,0 +1,12 @@
+{
+    "servers": {
+        "opc-ua-reference": {
+            "type": "http",
+            "url": "https://reference.opcfoundation.org/mcp"
+        },
+        "github": {
+            "type": "http",
+            "url": "https://api.githubcopilot.com/mcp"
+        }
+    }
+}
