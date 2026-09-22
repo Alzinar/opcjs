@@ -19,6 +19,11 @@ its endpoint path with a trailing `/`, and the client matches on exact path.
 - `index.ts` — connects anonymously, reads the `Integer` variable exposed
   by RefServer, and prints a success message. More tests will be added
   here over time.
+- `tests/uaNet.test.ts`, `tests/open62541.test.ts`, `tests/opcjs.test.ts` —
+  one file per RefServer, each covering the Discovery Client Configure
+  Endpoint conformance unit (`Client.getEndpoints()` returns a well-formed,
+  non-empty `EndpointDescription[]` with matching host/port/path) and the
+  read-Integer interop check.
 
 ### Running
 
@@ -32,9 +37,9 @@ npm run dev
 ## RefServer
 
 A minimal server built with `opcjs-server`, exposing a single writable
-`Int32` variable (`Integer`) under the `Objects` folder, in namespace 1
-(`opcjs-server`'s default application namespace — unlike `uaNet/RefServer`
-and `open62541/RefServer` it does not register a dedicated custom namespace).
+`Int32` variable (`Integer`) under the `Objects` folder, in a dedicated
+custom namespace (`http://opcjs.dev/UA/RefServer/`, landing at ns=2),
+matching `uaNet/RefServer` and `open62541/RefServer`.
 
 `opcjs-server` only implements the WebSocket transport without TLS (see
 [`packages/server/src/transport/webSocketListener.ts`](../../packages/server/src/transport/webSocketListener.ts)),

@@ -208,6 +208,9 @@ export class VariableNode extends OpcUaNode {
       AttributeId.Value,
       new DataValue(value, StatusCode.Good, sourceTimestamp ?? new Date()),
     )
+    if (Array.isArray(value.value)) {
+      this.attributes.set(AttributeId.ArrayDimensions, dv(Variant.newFrom([uaUint32(value.value.length)])))
+    }
   }
 
   /**

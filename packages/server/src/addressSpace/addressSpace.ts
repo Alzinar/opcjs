@@ -77,6 +77,8 @@ export class AddressSpace implements IAddressSpace {
   private serverDiagnosticsEnabledFlag!: VariableNode
   /** `Server/ServerDiagnostics/SamplingIntervalDiagnosticsArray` \u2014 wired to live data by {@link wireSubscriptionDiagnostics}. */
   private samplingIntervalDiagnosticsArray!: VariableNode
+  /** `Server/NamespaceArray` (ns=0;i=2255) \u2014 appended to by {@link addNamespace}. */
+  private namespaceArray!: VariableNode
 
   constructor() {
     this.populateReferenceTypes()
@@ -97,6 +99,23 @@ export class AddressSpace implements IAddressSpace {
       const enabled = this.serverDiagnosticsEnabledFlag.read(AttributeId.Value).value?.value === true
       return samplingIntervalDiagnosticsVariant(enabled ? getDiagnostics() : [])
     })
+  }
+
+  /**
+   * Registers `uri` as an additional namespace, appending it to
+   * `Server/NamespaceArray` (ns=0;i=2255) and returning its assigned
+   * namespace index. ns=0 (`http://opcfoundation.org/UA/`) and ns=1 (this
+   * server's own default namespace) are pre-registered, so the first call
+   * returns `2`.
+   *
+   * @see OPC UA Part 3 \u00a76.3.4 (NamespaceArray); Part 5 \u00a78.2.2.
+   */
+  addNamespace(uri: string): number {
+    const uris = [...((this.namespaceArray.read(AttributeId.Value).value as Variant).value as string[])]
+    const index = uris.length
+    uris.push(uri)
+    this.namespaceArray.setValue(Variant.newFrom(uris))
+    return index
   }
 
   /**
@@ -519,14 +538,14 @@ export class AddressSpace implements IAddressSpace {
     this.addReference(server.nodeId, hasProperty, serverArray.nodeId)
 
     // ns=0;i=2255   NamespaceArray  (Variable, String[])
-    const namespaceArray = this.addVariable(
+    this.namespaceArray = this.addVariable(
       NodeIdClass.newNumeric(0, ObjectIds.Server_NamespaceArray),
       'NamespaceArray',
       stringTypeId,
       Variant.newFrom([OPCUA_NAMESPACE_URI, SERVER_NAMESPACE_URI]),
       1,
     )
-    this.addReference(server.nodeId, hasProperty, namespaceArray.nodeId)
+    this.addReference(server.nodeId, hasProperty, this.namespaceArray.nodeId)
 
     // ns=0;i=2256   ServerStatus  (Variable, ServerStatusDataType)
     const startTime = new Date()

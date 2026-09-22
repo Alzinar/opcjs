@@ -27,10 +27,10 @@ export const open62541IntegerNodeId = NodeId.newString(2, 'Integer');
 // transport without TLS (see packages/server/src/transport/webSocketListener.ts),
 // so this is really served over unencrypted ws://; tests/opcjsWebSocketPolyfill.ts
 // rewrites the wss:// scheme opcjs-client always dials back down to ws:// for this
-// endpoint. opcjs-server's default address space only registers namespace 1 (no
-// dedicated custom namespace like the other two RefServers).
+// endpoint. Its Integer node lives in its own custom namespace
+// ("http://opcjs.dev/UA/RefServer/", ns=2), matching the other two RefServers.
 export const opcjsEndpointUrl = 'wss://localhost:62547/RefServer';
-export const opcjsIntegerNodeId = NodeId.newString(1, 'Integer');
+export const opcjsIntegerNodeId = NodeId.newString(2, 'Integer');
 
 // Shared, easily-gitignored location for every ref/ implementation's generated/received
 // certificates (see /tmp/ in .gitignore).

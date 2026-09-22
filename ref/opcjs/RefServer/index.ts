@@ -5,9 +5,8 @@
  * ref/open62541/RefServer.
  *
  * Exposes a single writable `Int32` variable ("Integer") under the `Objects`
- * folder, in namespace 1 (opcjs-server's default application namespace —
- * unlike the other two RefServers it does not register a dedicated custom
- * namespace URI).
+ * folder, in a dedicated custom namespace (`http://opcjs.dev/UA/RefServer/`,
+ * landing at ns=2), matching the other two RefServers.
  *
  * `opcjs-server` only implements the WebSocket transport without TLS (see
  * packages/server/src/transport/webSocketListener.ts): its endpoint is
@@ -19,11 +18,12 @@ import { NodeId, Variant, uaInt32 } from 'opcjs-base';
 
 const port = 62547;
 const endpointPath = '/RefServer';
+const CUSTOM_NAMESPACE_URI = 'http://opcjs.dev/UA/RefServer/';
 
-export const integerNodeId = NodeId.newString(1, 'Integer');
-
-function buildAddressSpace(): AddressSpace {
+function buildAddressSpace(): { addressSpace: AddressSpace; integerNodeId: NodeId } {
   const addressSpace = new AddressSpace();
+  const customNamespaceIndex = addressSpace.addNamespace(CUSTOM_NAMESPACE_URI);
+  const integerNodeId = NodeId.newString(customNamespaceIndex, 'Integer');
 
   const integerVariable = addressSpace.addVariable(
     integerNodeId,
@@ -43,7 +43,7 @@ function buildAddressSpace(): AddressSpace {
     integerVariable.nodeId,
   );
 
-  return addressSpace;
+  return { addressSpace, integerNodeId };
 }
 
 export async function createServer(): Promise<OpcUaServer> {
@@ -53,7 +53,8 @@ export async function createServer(): Promise<OpcUaServer> {
     port,
     endpointPath,
   });
-  server.addressSpace = buildAddressSpace();
+  const { addressSpace } = buildAddressSpace();
+  server.addressSpace = addressSpace;
   return server;
 }
 

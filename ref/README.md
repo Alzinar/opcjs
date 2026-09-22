@@ -55,7 +55,7 @@ Pass a path (or a substring of it) to `vitest run` to only run matching test fil
 
 ```bash
 cd ref/opcjs/RefClient
-npm test -- tests/readInteger.test.ts
+npm test -- tests/uaNet.test.ts
 ```
 
 Use `-t "<name>"` to filter by test name instead of file:

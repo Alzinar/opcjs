@@ -58,6 +58,43 @@ describe('AddressSpace – pre-populated nodes', () => {
   })
 })
 
+// ── addNamespace ──────────────────────────────────────────────────────────────
+
+describe('AddressSpace – addNamespace', () => {
+  it('assigns index 2 to the first registered namespace, after ns=0 and ns=1', () => {
+    const as = new AddressSpace()
+    const index = as.addNamespace('http://example.com/UA/Test/')
+    expect(index).toBe(2)
+  })
+
+  it('appends the URI to NamespaceArray without discarding the existing entries', () => {
+    const as = new AddressSpace()
+    as.addNamespace('http://example.com/UA/Test/')
+    const dv = as.read(NodeId.newNumeric(0, 2255), AttributeId.Value)
+    expect(dv.value?.value).toEqual([
+      'http://opcfoundation.org/UA/',
+      'urn:opcjs-server:default-namespace',
+      'http://example.com/UA/Test/',
+    ])
+  })
+
+  it('assigns increasing indexes across multiple calls', () => {
+    const as = new AddressSpace()
+    const first = as.addNamespace('http://example.com/UA/First/')
+    const second = as.addNamespace('http://example.com/UA/Second/')
+    expect(first).toBe(2)
+    expect(second).toBe(3)
+  })
+
+  it('updates NamespaceArray ArrayDimensions to match the new length', () => {
+    const as = new AddressSpace()
+    as.addNamespace('http://example.com/UA/Test/')
+    const dv = as.read(NodeId.newNumeric(0, 2255), AttributeId.ArrayDimensions)
+    expect(dv.value?.value).toEqual([3])
+  })
+})
+
+
 // ── read – error codes ────────────────────────────────────────────────────────
 
 describe('AddressSpace – read error codes', () => {

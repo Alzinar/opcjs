@@ -11,8 +11,8 @@
  *
  * Only import this from tests that talk to ref/opcjs/RefServer: Vitest runs
  * each test file in its own isolated module/global context by default, so
- * this does not affect the other RefClient tests (readInteger.test.ts,
- * readIntegerOpen62541.test.ts), which need the real, TLS-backed global
+ * this does not affect the other RefClient tests (uaNet.test.ts,
+ * open62541.test.ts), which need the real, TLS-backed global
  * `WebSocket`.
  */
 

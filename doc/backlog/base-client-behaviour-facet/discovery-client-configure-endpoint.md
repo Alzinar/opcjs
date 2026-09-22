@@ -8,6 +8,7 @@
 
 - `Client.getEndpoints()` (`packages/client/src/client.ts`) opens a transient SecureChannel to the configured `endpointUrl` and issues a `GetEndpointsRequest` via the new `DiscoveryService` (`packages/client/src/services/discoveryService.ts`), returning the `EndpointDescription[]` for the caller to inspect and choose from.
 - `Client.connect(endpoint?: EndpointDescription)` accepts a pre-selected `EndpointDescription` (e.g. from `getEndpoints()` or a config file), using its `endpointUrl` directly and bypassing the internal endpoint round-trip. The existing constructor `endpointUrl` remains the default when no endpoint is passed.
+- Cross-SDK interop coverage: `ref/opcjs/RefClient/tests/uaNet.test.ts`, `open62541.test.ts` and `opcjs.test.ts` each call `Client.getEndpoints()` against a real reference server (uaNet, open62541, opcjs) and assert the returned `EndpointDescription[]` is well-formed.
 
 ## Description
 

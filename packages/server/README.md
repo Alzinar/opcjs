@@ -39,6 +39,18 @@ await server.start()
 console.log(`OPC UA server listening at ${server.endpointUrl}`)
 ```
 
+Namespace 0 (`http://opcfoundation.org/UA/`) and namespace 1 (the server's own default namespace) are pre-registered. Call `addressSpace.addNamespace(uri)` to register additional namespaces — it appends `uri` to `Server/NamespaceArray` and returns the assigned index (starting at 2):
+
+```ts
+const myNamespaceIndex = addressSpace.addNamespace('http://example.com/UA/MyServer/')
+addressSpace.addVariable(
+  NodeId.newString(myNamespaceIndex, 'Counter'),
+  'Counter',
+  NodeId.newNumeric(0, 6), // Int32
+  Variant.newFrom(uaInt32(0)),
+)
+```
+
 ## Certificate Management
 
 `ConfigurationServer.certificateStore` accepts an `ICertificateStore` (from `opcjs-base`) so the server can present its own application instance certificate in `CreateSessionResponse.serverCertificate`:
