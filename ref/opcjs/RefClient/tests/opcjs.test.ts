@@ -10,7 +10,7 @@
 import './opcjsWebSocketPolyfill.js';
 
 import { describe, expect, it } from 'vitest';
-import { createClientFor, verifyGetEndpoints, verifyReadInteger } from './shared.js';
+import { createClientFor, verifyGetEndpoints, verifyReadInteger, verifySubscribeChangingNumber } from './shared.js';
 import { Client } from 'opcjs-client';
 
 const endpointUrl = 'wss://localhost:62547/RefServer';
@@ -30,4 +30,12 @@ describe('getEndpoints', () => {
 
         await verifyReadInteger(client);
     });
+});
+
+describe('subscribe', () => {
+    it('receives changing values for the Integer variable from the opcjs RefServer', async () => {
+        const client = await createClient();
+
+        await verifySubscribeChangingNumber(client);
+    }, 15_000);
 });

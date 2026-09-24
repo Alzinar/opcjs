@@ -12,7 +12,9 @@ Generated/received certificates are stored under the repo-root `tmp/` folder (se
 A minimal server exposing a single writable `Int32` variable node
 (`Integer`) under the `Objects` folder, in the custom namespace
 `http://opcjs.dev/UA/RefServer/` — mirroring [`ref/uaNet/RefServer`](../uaNet/README.md)'s
-node tree.
+node tree. A repeated callback (`UA_Server_addRepeatedCallback`) also
+increments `Integer` on its own every 200 ms, so subscribing clients observe
+a changing value without needing to issue a Write themselves.
 
 Listens on `opc.tcp://localhost:62545/RefServer` and
 `opc.wss://127.0.0.1:62546/RefServer`. Only the latter is reachable by

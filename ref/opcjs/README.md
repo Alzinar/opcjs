@@ -22,8 +22,11 @@ its endpoint path with a trailing `/`, and the client matches on exact path.
 - `tests/uaNet.test.ts`, `tests/open62541.test.ts`, `tests/opcjs.test.ts` —
   one file per RefServer, each covering the Discovery Client Configure
   Endpoint conformance unit (`Client.getEndpoints()` returns a well-formed,
-  non-empty `EndpointDescription[]` with matching host/port/path) and the
-  read-Integer interop check.
+  non-empty `EndpointDescription[]` with matching host/port/path), the
+  read-Integer interop check, and a subscribe check: every RefServer
+  increments its `Integer` variable on its own every 200 ms (no
+  client-initiated Write is required), and the test asserts
+  `Client.subscribe()` delivers at least two distinct values.
 
 ### Running
 
@@ -39,7 +42,10 @@ npm run dev
 A minimal server built with `opcjs-server`, exposing a single writable
 `Int32` variable (`Integer`) under the `Objects` folder, in a dedicated
 custom namespace (`http://opcjs.dev/UA/RefServer/`, landing at ns=2),
-matching `uaNet/RefServer` and `open62541/RefServer`.
+matching `uaNet/RefServer` and `open62541/RefServer`. The server also
+increments `Integer` on its own every 200 ms, so subscribing clients observe
+a changing value without needing to issue a Write themselves (`opcjs-client`
+does not implement the Write service yet).
 
 `opcjs-server` only implements the WebSocket transport without TLS (see
 [`packages/server/src/transport/webSocketListener.ts`](../../packages/server/src/transport/webSocketListener.ts)),

@@ -24,8 +24,7 @@
     "packages/base",
     "packages/generator",
     "packages/client",
-    "packages/server",
-    "packages/e2e"
+    "packages/server"
   ],
   "scripts": {
     "prepare": "git config core.hooksPath .githooks",

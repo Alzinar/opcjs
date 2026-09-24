@@ -14,13 +14,14 @@
  */
 
 import { AccessLevelFlags, AddressSpace, ObjectIds, OpcUaServer, ReferenceTypeIds } from 'opcjs-server';
+import type { VariableNode } from 'opcjs-server';
 import { NodeId, Variant, uaInt32 } from 'opcjs-base';
 
 const port = 62547;
 const endpointPath = '/RefServer';
 const CUSTOM_NAMESPACE_URI = 'http://opcjs.dev/UA/RefServer/';
 
-function buildAddressSpace(): { addressSpace: AddressSpace; integerNodeId: NodeId } {
+function buildAddressSpace(): { addressSpace: AddressSpace; integerNodeId: NodeId; integerVariable: VariableNode } {
   const addressSpace = new AddressSpace();
   const customNamespaceIndex = addressSpace.addNamespace(CUSTOM_NAMESPACE_URI);
   const integerNodeId = NodeId.newString(customNamespaceIndex, 'Integer');
@@ -43,7 +44,7 @@ function buildAddressSpace(): { addressSpace: AddressSpace; integerNodeId: NodeI
     integerVariable.nodeId,
   );
 
-  return { addressSpace, integerNodeId };
+  return { addressSpace, integerNodeId, integerVariable };
 }
 
 export async function createServer(): Promise<OpcUaServer> {
@@ -53,8 +54,18 @@ export async function createServer(): Promise<OpcUaServer> {
     port,
     endpointPath,
   });
-  const { addressSpace } = buildAddressSpace();
+  const { addressSpace, integerVariable } = buildAddressSpace();
   server.addressSpace = addressSpace;
+
+  // Increment the Integer variable periodically so subscribing clients observe a
+  // changing value, without requiring a client-initiated Write.
+  let counter = 0;
+  const incrementTimer = setInterval(() => {
+    counter += 1;
+    integerVariable.setValue(Variant.newFrom(uaInt32(counter)));
+  }, 200);
+  incrementTimer.unref();
+
   return server;
 }
 

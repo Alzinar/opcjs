@@ -126,8 +126,8 @@ static UA_StatusCode ensureOwnCertificate(UA_ByteString *certificate, UA_ByteStr
 
 /* Adds the "Integer" variable node under the Objects folder, in a custom
  * namespace (mirrors ref/uaNet/RefServer's node tree for cross-framework
- * interop tests). */
-static UA_StatusCode addIntegerVariable(UA_Server *server) {
+ * interop tests). Returns the assigned NodeId via *outNodeId. */
+static UA_StatusCode addIntegerVariable(UA_Server *server, UA_NodeId *outNodeId) {
     UA_UInt16 nsIdx = UA_Server_addNamespace(server, "http://opcjs.dev/UA/RefServer/");
 
     UA_VariableAttributes attr = UA_VariableAttributes_default;
@@ -139,10 +139,33 @@ static UA_StatusCode addIntegerVariable(UA_Server *server) {
 
     UA_NodeId integerNodeId = UA_NODEID_STRING(nsIdx, "Integer");
     UA_QualifiedName browseName = UA_QUALIFIEDNAME(nsIdx, "Integer");
+    *outNodeId = UA_NODEID_STRING_ALLOC(nsIdx, "Integer");
     return UA_Server_addVariableNode(
         server, integerNodeId, UA_NS0ID(OBJECTSFOLDER), UA_NS0ID(ORGANIZES),
         browseName, UA_NODEID_NULL, attr, NULL, NULL);
 }
+
+/* Increments the Integer variable every time this repeated callback fires, so
+ * subscribing clients observe a changing value without a client-initiated Write. */
+static void incrementInteger(UA_Server *server, void *data) {
+    UA_NodeId *nodeId = (UA_NodeId *) data;
+    UA_Variant currentValue;
+    UA_Variant_init(&currentValue);
+    UA_StatusCode res = UA_Server_readValue(server, *nodeId, &currentValue);
+    if(res != UA_STATUSCODE_GOOD || !UA_Variant_hasScalarType(&currentValue, &UA_TYPES[UA_TYPES_INT32])) {
+        UA_Variant_clear(&currentValue);
+        return;
+    }
+
+    UA_Int32 nextValue = *(UA_Int32 *) currentValue.data + 1;
+    UA_Variant_clear(&currentValue);
+
+    UA_Variant newValue;
+    UA_Variant_init(&newValue);
+    UA_Variant_setScalar(&newValue, &nextValue, &UA_TYPES[UA_TYPES_INT32]);
+    UA_Server_writeValue(server, *nodeId, newValue);
+}
+
 
 int main(void) {
     signal(SIGINT, stopHandler);
@@ -195,13 +218,17 @@ int main(void) {
         return EXIT_FAILURE;
     }
 
-    res = addIntegerVariable(server);
+    UA_NodeId integerNodeId;
+    res = addIntegerVariable(server, &integerNodeId);
     if(res != UA_STATUSCODE_GOOD) {
         UA_LOG_FATAL(UA_Log_Stdout, UA_LOGCATEGORY_SERVER,
                      "Could not add the Integer variable: %s", UA_StatusCode_name(res));
         UA_Server_delete(server);
         return EXIT_FAILURE;
     }
+
+    UA_UInt64 incrementCallbackId = 0;
+    UA_Server_addRepeatedCallback(server, incrementInteger, &integerNodeId, 200, &incrementCallbackId);
 
     UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_SERVER,
                 "Server started. opc.tcp://localhost:%d/RefServer and " WSS_ENDPOINT_URL, TCP_PORT);

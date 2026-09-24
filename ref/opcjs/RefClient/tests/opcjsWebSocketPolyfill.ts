@@ -6,8 +6,7 @@
  * (ref/opcjs/RefServer) only exposes an unencrypted `ws://` listener — see
  * packages/server/src/transport/webSocketListener.ts. Importing this module
  * installs a global `WebSocket` that wraps the Node `ws` package and rewrites
- * `wss://` to `ws://` before opening the underlying socket, mirroring
- * packages/e2e/tests/setup/webSocketPolyfill.ts.
+ * `wss://` to `ws://` before opening the underlying socket.
  *
  * Only import this from tests that talk to ref/opcjs/RefServer: Vitest runs
  * each test file in its own isolated module/global context by default, so

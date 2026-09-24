@@ -57,6 +57,39 @@ async function readInteger(client: Client, nodeId: NodeId): Promise<number> {
 }
 
 /**
+ * Connects `client`, subscribes to the Integer variable (which every RefServer
+ * increments on its own every 200 ms), and asserts that at least two distinct
+ * values are delivered to the subscription callback.
+ */
+export async function verifySubscribeChangingNumber(client: Client): Promise<void> {
+    try {
+        await client.connect();
+
+        const integerNodeId = NodeId.newString(2, 'Integer');
+        const received: number[] = [];
+
+        await new Promise<void>((resolve, reject) => {
+            void client.subscribe(
+                [integerNodeId],
+                (updates) => {
+                    for (const update of updates) {
+                        received.push(update.value as number);
+                    }
+                    if (new Set(received).size >= 2) {
+                        resolve();
+                    }
+                },
+                { requestedPublishingInterval: 200 },
+            ).catch(reject);
+        });
+
+        expect(new Set(received).size).toBeGreaterThanOrEqual(2);
+    } finally {
+        await client.disconnect();
+    }
+}
+
+/**
  * Discovery Client Configure Endpoint conformance unit (OPC UA Part 4, §5.4.3):
  * asserts `client.getEndpoints()` returns a well-formed, non-empty
  * `EndpointDescription[]` that includes the endpoint `client` is connected to.

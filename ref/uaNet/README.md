@@ -11,7 +11,10 @@ Generated/received certificates are stored under the repo-root `tmp/` folder (se
 ## RefServer
 
 A minimal server exposing a single writable `Int32` variable node
-(`Integer`) under the `Objects` folder.
+(`Integer`) under the `Objects` folder. `RefNodeManager` also increments
+`Integer` on its own every 200 ms via a `System.Threading.Timer`, so
+subscribing clients observe a changing value without needing to issue a
+Write themselves.
 
 - `Program.cs` — builds the `ApplicationConfiguration`, creates a
   self-signed application certificate on first run, registers the

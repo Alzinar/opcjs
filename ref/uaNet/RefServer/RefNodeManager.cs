@@ -1,5 +1,6 @@
 using Opc.Ua;
 using Opc.Ua.Server;
+using System.Threading;
 
 namespace RefServer;
 
@@ -10,6 +11,9 @@ namespace RefServer;
 internal sealed class RefNodeManager : CustomNodeManager2
 {
     private const string NamespaceUri = "http://opcjs.dev/UA/RefServer/";
+
+    private BaseDataVariableState? _integerVariable;
+    private Timer? _incrementTimer;
 
     public RefNodeManager(IServerInternal server, ApplicationConfiguration configuration)
         : base(server, configuration, NamespaceUri)
@@ -45,6 +49,27 @@ internal sealed class RefNodeManager : CustomNodeManager2
             references.Add(new NodeStateReference(ReferenceTypeIds.Organizes, false, integerVariable.NodeId));
 
             AddPredefinedNode(SystemContext, integerVariable);
+
+            _integerVariable = integerVariable;
+        }
+
+        // Increment the Integer variable periodically so subscribing clients observe a
+        // changing value, without requiring a client-initiated Write.
+        _incrementTimer = new Timer(IncrementInteger, null, 200, 200);
+    }
+
+    private void IncrementInteger(object? state)
+    {
+        lock (Lock)
+        {
+            if (_integerVariable is null)
+            {
+                return;
+            }
+
+            _integerVariable.Value = ((int)_integerVariable.Value) + 1;
+            _integerVariable.Timestamp = DateTime.UtcNow;
+            _integerVariable.ClearChangeMasks(SystemContext, false);
         }
     }
 }
