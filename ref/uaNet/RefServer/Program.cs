@@ -52,7 +52,14 @@ await application
 
 await application.CheckApplicationInstanceCertificatesAsync(silent: true);
 
-await application.StartAsync(new RefServerHost());
+var refServerHost = new RefServerHost();
+await application.StartAsync(refServerHost);
+
+// Test-only control channel for ref/opcjs/RefClient/tests/uaNet.test.ts (Session Client Detect
+// Shutdown conformance unit) — see ControlServer.cs.
+const int controlPort = 62549;
+using var controlServerCts = new CancellationTokenSource();
+_ = ControlServer.RunAsync(refServerHost, controlPort, controlServerCts.Token);
 
 Console.WriteLine("Server started.");
 Console.WriteLine($"  {tcpEndpointUrl}");
@@ -67,4 +74,5 @@ Console.CancelKeyPress += (_, e) =>
 };
 await exitEvent.Task;
 
+controlServerCts.Cancel();
 await application.StopAsync();

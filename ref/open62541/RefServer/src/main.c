@@ -19,8 +19,17 @@
 #include <string.h>
 #include <sys/stat.h>
 
+#include <pthread.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+
 #define TCP_PORT 62545
 #define WSS_PORT 62546
+/* Test-only, localhost-only control listener used by ref/opcjs/RefClient/tests/open62541.test.ts
+ * (Session Client Detect Shutdown conformance unit) — not part of the OPC UA protocol. */
+#define CONTROL_PORT 62551
 /* libwebsockets binds the vhost "iface" directly to a numeric IP or network
  * device name (no DNS resolution) — "localhost" fails with "DOESN'T EXIST". */
 #define WSS_ENDPOINT_URL "opc.wss://127.0.0.1:" _STR(WSS_PORT) "/RefServer"
@@ -38,9 +47,101 @@
 
 static volatile UA_Boolean running = true;
 
+/* Flipped by the control-thread listener below, read by readServerStatusOverride() (invoked on
+ * the main server thread while handling Read requests) — a plain flag toggle, fully decoupled
+ * from open62541's own real shutdown machinery (UA_Server_run's endTime), so simulating a
+ * shutdown here never actually terminates this reference server. */
+static volatile sig_atomic_t g_simulateShutdown = 0;
+static UA_DateTime g_serverStartTime;
+
 static void stopHandler(int sign) {
     (void) sign;
     running = false;
+}
+
+/* Overrides the standard ServerStatus (ns=0;i=2256) read callback so this reference server can
+ * report ServerState.Shutdown on demand, purely for the Session Client Detect Shutdown ref test —
+ * see the control-thread listener (controlServerThread) and g_simulateShutdown above. */
+static UA_StatusCode
+readServerStatusOverride(UA_Server *server, const UA_NodeId *sessionId, void *sessionContext,
+                          const UA_NodeId *nodeId, void *nodeContext, UA_Boolean sourceTimestamp,
+                          const UA_NumericRange *range, UA_DataValue *value) {
+    (void) sessionId; (void) sessionContext; (void) nodeId; (void) nodeContext;
+
+    if(range) {
+        value->hasStatus = true;
+        value->status = UA_STATUSCODE_BADINDEXRANGEINVALID;
+        return UA_STATUSCODE_GOOD;
+    }
+
+    UA_ServerStatusDataType *status = UA_ServerStatusDataType_new();
+    if(!status)
+        return UA_STATUSCODE_BADOUTOFMEMORY;
+
+    UA_DateTime now = UA_DateTime_now();
+    status->startTime = g_serverStartTime;
+    status->currentTime = now;
+    status->state = g_simulateShutdown ? UA_SERVERSTATE_SHUTDOWN : UA_SERVERSTATE_RUNNING;
+    status->secondsTillShutdown = g_simulateShutdown ? 3600 : 0;
+    UA_BuildInfo_copy(&UA_Server_getConfig(server)->buildInfo, &status->buildInfo);
+
+    value->value.data = status;
+    value->value.type = &UA_TYPES[UA_TYPES_SERVERSTATUSDATATYPE];
+    value->hasValue = true;
+    if(sourceTimestamp) {
+        value->hasSourceTimestamp = true;
+        value->sourceTimestamp = now;
+    }
+    return UA_STATUSCODE_GOOD;
+}
+
+/* Accepts one connection at a time on 127.0.0.1:CONTROL_PORT, reads a single line ("Shutdown" or
+ * "Running"), flips g_simulateShutdown accordingly, and replies "OK\n". Runs on its own thread;
+ * only ever touches the plain flag above, never calls into the (not thread-safe) UA_Server API. */
+static void *controlServerThread(void *arg) {
+    (void) arg;
+    int listenFd = socket(AF_INET, SOCK_STREAM, 0);
+    if(listenFd < 0)
+        return NULL;
+
+    int reuse = 1;
+    setsockopt(listenFd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
+
+    struct sockaddr_in addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    addr.sin_port = htons(CONTROL_PORT);
+
+    if(bind(listenFd, (struct sockaddr *) &addr, sizeof(addr)) < 0 || listen(listenFd, 4) < 0) {
+        close(listenFd);
+        return NULL;
+    }
+
+    while(running) {
+        int connFd = accept(listenFd, NULL, NULL);
+        if(connFd < 0)
+            continue;
+
+        char buf[64];
+        ssize_t n = read(connFd, buf, sizeof(buf) - 1);
+        if(n > 0) {
+            buf[n] = '\0';
+            const char *reply = "ERROR unknown command\n";
+            if(strncmp(buf, "Shutdown", 8) == 0) {
+                g_simulateShutdown = 1;
+                reply = "OK\n";
+            } else if(strncmp(buf, "Running", 7) == 0) {
+                g_simulateShutdown = 0;
+                reply = "OK\n";
+            }
+            (void) write(connFd, reply, strlen(reply));
+        }
+        close(connFd);
+    }
+
+    close(listenFd);
+    return NULL;
 }
 
 /* Recursive "mkdir -p", since the shared tmp/ pki path is several levels deep
@@ -229,6 +330,18 @@ int main(void) {
 
     UA_UInt64 incrementCallbackId = 0;
     UA_Server_addRepeatedCallback(server, incrementInteger, &integerNodeId, 200, &incrementCallbackId);
+
+    /* Session Client Detect Shutdown ref test hook (see readServerStatusOverride/
+     * controlServerThread above): override the standard ServerStatus read callback so this
+     * server can report ServerState.Shutdown on demand, then start the control listener that
+     * flips it. */
+    g_serverStartTime = UA_DateTime_now();
+    UA_CallbackValueSource statusOverride = { readServerStatusOverride, NULL };
+    UA_Server_setVariableNode_callbackValueSource(server, UA_NS0ID(SERVER_SERVERSTATUS), statusOverride);
+
+    pthread_t controlThread;
+    pthread_create(&controlThread, NULL, controlServerThread, NULL);
+    pthread_detach(controlThread);
 
     UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_SERVER,
                 "Server started. opc.tcp://localhost:%d/RefServer and " WSS_ENDPOINT_URL, TCP_PORT);

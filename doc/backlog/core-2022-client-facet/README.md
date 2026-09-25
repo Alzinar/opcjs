@@ -40,6 +40,6 @@ A client claiming conformance to this facet must also conform to all **mandatory
 | ✅ | [base-services-client-diagnostics.md](./base-services-client-diagnostics.md) | Base Services Client Diagnostics |
 | ✅ | [security-admin-certificate-management.md](./security-admin-certificate-management.md) | Security Admin – Certificate Management |
 | ✅ | [session-client-cancel.md](./session-client-cancel.md) | Session Client Cancel |
-| ❌ | [session-client-detect-shutdown.md](./session-client-detect-shutdown.md) | Session Client Detect Shutdown |
+| ✅ | [session-client-detect-shutdown.md](./session-client-detect-shutdown.md) | Session Client Detect Shutdown |
 | ✅ | [session-client-impersonate.md](./session-client-impersonate.md) | Session Client Impersonate |
 | ✅ | [session-client-renew-nodeids.md](./session-client-renew-nodeids.md) | Session Client Renew NodeIds |

@@ -11,15 +11,23 @@
  * `opcjs-server` only implements the WebSocket transport without TLS (see
  * packages/server/src/transport/webSocketListener.ts): its endpoint is
  * unencrypted `ws://`, not the `wss://` served by the other two RefServers.
+ *
+ * Also exposes a minimal, localhost-only HTTP control endpoint (see
+ * `startControlServer`) that RefClient's ref-test suite uses to simulate a
+ * server shutdown against this shared instance (Session Client Detect
+ * Shutdown conformance unit) — not part of the OPC UA protocol itself.
  */
 
+import { createServer as createHttpServer, type Server as HttpServer } from 'node:http';
 import { AccessLevelFlags, AddressSpace, ObjectIds, OpcUaServer, ReferenceTypeIds } from 'opcjs-server';
 import type { VariableNode } from 'opcjs-server';
-import { NodeId, Variant, uaInt32 } from 'opcjs-base';
+import { NodeId, ServerStateEnum, Variant, uaInt32 } from 'opcjs-base';
 
 const port = 62547;
 const endpointPath = '/RefServer';
 const CUSTOM_NAMESPACE_URI = 'http://opcjs.dev/UA/RefServer/';
+/** Port for the test-only shutdown-control HTTP endpoint (see `startControlServer`). */
+const controlPort = 62548;
 
 function buildAddressSpace(): { addressSpace: AddressSpace; integerNodeId: NodeId; integerVariable: VariableNode } {
   const addressSpace = new AddressSpace();
@@ -47,6 +55,45 @@ function buildAddressSpace(): { addressSpace: AddressSpace; integerNodeId: NodeI
   return { addressSpace, integerNodeId, integerVariable };
 }
 
+/**
+ * Starts a minimal HTTP server, bound to localhost only, that lets RefClient's ref-test
+ * suite simulate a server shutdown announcement against the running `OpcUaServer` instance:
+ * `POST /server-state` with a JSON body `{ state: 'Shutdown' | 'Running', estimatedReturnTime?: number }`
+ * (epoch ms) sets `Server/ServerStatus/State` (and, optionally, `EstimatedReturnTime`) via
+ * `AddressSpace.setServerState`.
+ */
+function startControlServer(server: OpcUaServer): HttpServer {
+  const httpServer = createHttpServer((req, res) => {
+    if (req.method !== 'POST' || req.url !== '/server-state') {
+      res.writeHead(404).end();
+      return;
+    }
+    let body = '';
+    req.on('data', (chunk: Buffer) => { body += chunk; });
+    req.on('end', () => {
+      try {
+        const { state, estimatedReturnTime } = JSON.parse(body) as {
+          state: 'Running' | 'Shutdown';
+          estimatedReturnTime?: number;
+        };
+        const addressSpace = server.addressSpace;
+        if (!(addressSpace instanceof AddressSpace)) {
+          throw new Error('server.addressSpace is not an AddressSpace instance');
+        }
+        addressSpace.setServerState(
+          state === 'Shutdown' ? ServerStateEnum.Shutdown : ServerStateEnum.Running,
+          estimatedReturnTime !== undefined ? new Date(estimatedReturnTime) : undefined,
+        );
+        res.writeHead(200).end();
+      } catch (error) {
+        res.writeHead(400).end(error instanceof Error ? error.message : String(error));
+      }
+    });
+  });
+  httpServer.listen(controlPort, '127.0.0.1');
+  return httpServer;
+}
+
 export async function createServer(): Promise<OpcUaServer> {
   const server = new OpcUaServer({
     productName: 'RefServer',
@@ -72,6 +119,7 @@ export async function createServer(): Promise<OpcUaServer> {
 async function main(): Promise<void> {
   const server = await createServer();
   await server.start();
+  const controlServer = startControlServer(server);
 
   // opcjs-server's endpointUrl getter labels the scheme "opc.wss://" even though the
   // listener never performs a TLS handshake — see the module doc comment above.
@@ -84,6 +132,7 @@ async function main(): Promise<void> {
     process.on('SIGTERM', () => resolve());
   });
 
+  await new Promise<void>(resolve => controlServer.close(() => resolve()));
   await server.stop();
 }
 

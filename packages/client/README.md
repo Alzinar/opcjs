@@ -58,6 +58,19 @@ Reconnects automatically on channel drops (Session Auto Reconnect, OPC UA Part 4
 1. Attempts `ActivateSession` on the new channel to reuse the existing session.
 2. Falls back to a full `CreateSession` + `ActivateSession` if reactivation fails.
 
+### Server shutdown detection
+
+The client monitors for a pending server shutdown (Session Client Detect Shutdown, OPC UA Part 4 §5.13.6.2 / Part 5 §12.6) via two paths: the keep-alive read seeing `ServerStatus/State = Shutdown`, and a subscription `StatusChangeNotification` carrying `BadShutdown` / `BadServerHalted`. Either path fires `onServerShutdown`, then reads `Server/ServerStatus/EstimatedReturnTime` and schedules a reconnect — or fires `onPermanentShutdown` when the server sends `MinDateTime` (Base Info Client Estimated Return Time).
+
+```ts
+client.onServerShutdown = () => {
+  console.warn('Server is shutting down; a reconnect will be attempted automatically.')
+}
+client.onPermanentShutdown = () => {
+  console.warn('Server will not restart — closing client.')
+}
+```
+
 ### `client.disconnect(): Promise<void>`
 
 Sends `CloseSession` (with `deleteSubscriptions=true`), closes the SecureChannel, and shuts down the WebSocket transport.

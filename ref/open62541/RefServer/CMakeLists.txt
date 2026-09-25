@@ -30,5 +30,7 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(open62541)
 
+find_package(Threads REQUIRED)
+
 add_executable(RefServer src/main.c)
-target_link_libraries(RefServer PRIVATE open62541::open62541)
+target_link_libraries(RefServer PRIVATE open62541::open62541 Threads::Threads)

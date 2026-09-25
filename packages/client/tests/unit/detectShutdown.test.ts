@@ -39,9 +39,13 @@ function makeClient(): Client {
   return new Client('opc.wss://localhost:4840', config, identity)
 }
 
-/** Returns a ServerStatusDataType-shaped value with the given state. */
+/**
+ * Returns a mock `DataValue.value`-shaped result: a Variant-like wrapper (`.value`) around an
+ * ExtensionObject-like wrapper (`.data`) around the actual `ServerStatusDataType`-shaped value,
+ * mirroring what `AttributeService.ReadValue` returns for a real `ServerStatus` read.
+ */
 function makeStatusValue(state: ServerStateEnum) {
-  return { state }
+  return { value: { data: { state } } }
 }
 
 // ---------------------------------------------------------------------------
@@ -260,5 +264,25 @@ describe('Client detect shutdown – subscription path', () => {
     await vi.advanceTimersByTimeAsync(shutdownDelay)
 
     expect(reconnect).toHaveBeenCalledOnce()
+  })
+
+  it('fires onServerShutdown exactly once when shutdown is detected', async () => {
+    const client = makeClient()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const c = client as any
+    const shutdownDelay: number = c.configuration.shutdownReconnectDelayMs
+
+    c.reconnectAndReactivate = vi.fn().mockResolvedValue(undefined)
+    c.initServices = vi.fn()
+
+    const onServerShutdown = vi.fn()
+    client.onServerShutdown = onServerShutdown
+
+    c.handleServerShutdownDetected()
+    c.handleServerShutdownDetected()
+
+    expect(onServerShutdown).toHaveBeenCalledOnce()
+
+    await vi.advanceTimersByTimeAsync(shutdownDelay)
   })
 })

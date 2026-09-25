@@ -30,6 +30,8 @@ import {
   type EndpointDescription,
   type ICertificateStore,
   createDefaultCertificateStore,
+  type ExtensionObject,
+  StatusCode,
 } from 'opcjs-base'
 
 import { SessionHandler } from './sessions/sessionHandler.js'
@@ -65,15 +67,29 @@ const ESTIMATED_RETURN_TIME_NODE_ID = NodeId.newNumeric(0, 2992)
 /** OPC UA HasProperty reference type (ns=0, i=46). Used to find property nodes. */
 const HAS_PROPERTY_REF_TYPE_ID = NodeId.newNumeric(0, 46)
 /**
- * How often to read the server when no subscription is active (ms).
- * Must be shorter than the server's revisedSessionTimeout (default: 60 000 ms).
- */
-const KEEP_ALIVE_INTERVAL_MS = 25_000
-/**
  * OPC UA MinDateTime decoded as a JS Date timestamp (ms since Unix epoch).
  * A server that sends MinDateTime for EstimatedReturnTime does not expect to restart.
  */
 const OPC_UA_MIN_DATE_TIME_MS = -11_644_473_600_000
+
+/**
+ * A spec-conformant server may reject any in-flight service request with a
+ * Bad_ServerHalted/Bad_Shutdown ServiceFault once it starts shutting down (OPC UA Part 4,
+ * §5.13.5). `SecureChannelFacade` surfaces a ServiceFault as a plain `Error` whose message
+ * embeds the response header JSON (no typed status-code property), so this checks the
+ * message text for the ServiceFault's `serviceResult`.
+ */
+function isServerHaltedError(err: unknown): boolean {
+  if (!(err instanceof Error)) {
+    return false
+  }
+  const match = /"serviceResult":(\d+)/.exec(err.message)
+  if (!match) {
+    return false
+  }
+  const serviceResult = Number(match[1])
+  return serviceResult === StatusCode.BadServerHalted || serviceResult === StatusCode.BadShutdown
+}
 
 
 export class Client {
@@ -131,6 +147,25 @@ export class Client {
    * ```
    */
   onPermanentShutdown?: () => void
+
+  /**
+   * Called as soon as a server shutdown announcement is detected — via the keep-alive read
+   * seeing `ServerStatus/State = Shutdown` or a subscription `StatusChangeNotification` with
+   * `BadShutdown` / `BadServerHalted` (OPC UA Part 4, §5.13.6.2 — Session Client Detect
+   * Shutdown conformance unit).
+   *
+   * Fires once per shutdown announcement, before `EstimatedReturnTime` is read and a
+   * reconnect is scheduled. Use `onPermanentShutdown` instead to detect the specific case
+   * where the server does not expect to restart.
+   *
+   * @example
+   * ```ts
+   * client.onServerShutdown = () => {
+   *   console.warn('Server is shutting down; a reconnect will be attempted automatically.')
+   * }
+   * ```
+   */
+  onServerShutdown?: () => void
 
   getSession(): Session {
     if (!this.session) {
@@ -278,15 +313,25 @@ export class Client {
       }
       if (this.attributeService) {
         void this.attributeService.ReadValue([SERVER_STATUS_NODE_ID]).then((results) => {
-          const statusData = results[0]?.value as ServerStatusDataType | undefined
+          // Navigate through the Variant/ExtensionObject wrappers: results[0].value is a
+          // Variant whose .value is an ExtensionObject whose .data is the ServerStatusDataType.
+          const variant = results[0]?.value as { value?: ExtensionObject } | undefined
+          const statusData = variant?.value?.data as ServerStatusDataType | undefined
           if (statusData?.state === ServerStateEnum.Shutdown) {
             this.handleServerShutdownDetected()
           }
         }).catch((err) => {
           this.logger.warn('Keep-alive read failed:', err)
+          // A spec-conformant server (OPC UA Part 4, §5.13.5) may reject any in-flight
+          // service request — including this keep-alive read itself — with a
+          // Bad_ServerHalted/Bad_Shutdown ServiceFault once it starts shutting down,
+          // instead of (or in addition to) reporting Shutdown via a successful read.
+          if (isServerHaltedError(err)) {
+            this.handleServerShutdownDetected()
+          }
         })
       }
-    }, KEEP_ALIVE_INTERVAL_MS)
+    }, this.configuration.keepAliveIntervalMs)
   }
 
   private stopKeepAlive(): void {
@@ -306,7 +351,8 @@ export class Client {
    * reconnect when the server sends `MinDateTime`.
    *
    * Only one reconnect attempt is scheduled at a time; a second detection while one is already
-   * pending is silently ignored.
+   * pending is silently ignored — `onServerShutdown` fires only for the detection that starts
+   * the pending reconnect.
    */
   private handleServerShutdownDetected(): void {
     if (this.shutdownReconnectPending) {
@@ -315,6 +361,7 @@ export class Client {
     this.shutdownReconnectPending = true
     this.stopKeepAlive()
     this.logger.warn('Server shutdown detected; reading EstimatedReturnTime...')
+    this.onServerShutdown?.()
     void this.computeReconnectDelayMs().then((delayMs) => {
       if (delayMs === null) {
         this.logger.warn(

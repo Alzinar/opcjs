@@ -9,9 +9,12 @@
 
 import { describe, expect, it } from 'vitest';
 import { Client } from 'opcjs-client';
-import { createClientFor, verifyGetEndpoints, verifyReadInteger, verifySubscribeChangingNumber } from './shared.js';
+import { createClientFor, setServerStateTcp, verifyDetectShutdown, verifyGetEndpoints, verifyReadInteger, verifySubscribeChangingNumber } from './shared.js';
 
 const endpointUrl = 'wss://127.0.0.1:62546/RefServer';
+// Test-only, localhost-only control listener (see controlServerThread in
+// ref/open62541/RefServer/src/main.c).
+const controlPort = 62551;
 
 async function createClient(): Promise<Client> {
   return createClientFor(endpointUrl);
@@ -40,4 +43,22 @@ describe('subscribe', () => {
 
         await verifySubscribeChangingNumber(client);
     }, 15_000);
+});
+
+describe('detect shutdown', () => {
+
+    it('detects a server shutdown announcement and reconnects afterwards', async () => {
+        const client = await createClientFor(endpointUrl, (configuration) => {
+            // Poll far faster than the 25 s production default so the test doesn't have to
+            // wait that long for the keep-alive read to observe the shutdown. open62541
+            // doesn't report a real EstimatedReturnTime (that field is nonstandard —
+            // opcjs-only, see ServerStatusDataType, OPC UA Part 5 §12.10), so the reconnect
+            // falls back to shutdownReconnectDelayMs; shrink that too.
+            configuration.keepAliveIntervalMs = 200;
+            configuration.minReconnectDelayMs = 100;
+            configuration.shutdownReconnectDelayMs = 200;
+        });
+
+        await verifyDetectShutdown(client, (state, estimatedReturnTime) => setServerStateTcp(controlPort, state, estimatedReturnTime));
+    }, 20_000);
 });

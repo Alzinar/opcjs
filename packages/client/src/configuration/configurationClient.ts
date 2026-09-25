@@ -44,6 +44,16 @@ export class ConfigurationClient extends Configuration {
    * Defaults to 1 000 ms.
    */
   public minReconnectDelayMs = 1_000
+
+  /**
+   * How often (ms) the keep-alive timer reads `Server_ServerStatus` when no subscription
+   * publish loop is active. Must be shorter than the server's `revisedSessionTimeout`
+   * (default: 60 000 ms). Also the polling interval for the `ServerStatus/State = Shutdown`
+   * detection path (Session Client Detect Shutdown conformance unit).
+   *
+   * Defaults to 25 000 ms.
+   */
+  public keepAliveIntervalMs = 25_000
   public static getSimple(
     name: string,
     company: string,

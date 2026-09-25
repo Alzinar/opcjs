@@ -79,6 +79,10 @@ export class AddressSpace implements IAddressSpace {
   private samplingIntervalDiagnosticsArray!: VariableNode
   /** `Server/NamespaceArray` (ns=0;i=2255) \u2014 appended to by {@link addNamespace}. */
   private namespaceArray!: VariableNode
+  /** `Server/ServerStatus/State` \u2014 mutated by {@link setServerState} to simulate a shutdown announcement. */
+  private serverState: ServerStateEnum = ServerStateEnum.Running
+  /** `Server/ServerStatus/EstimatedReturnTime` (ns=0;i=2992) node \u2014 written to by {@link setServerState}. */
+  private serverStatusEstimatedReturnTime!: VariableNode
 
   constructor() {
     this.populateReferenceTypes()
@@ -116,6 +120,21 @@ export class AddressSpace implements IAddressSpace {
     uris.push(uri)
     this.namespaceArray.setValue(Variant.newFrom(uris))
     return index
+  }
+
+  /**
+   * Sets `Server/ServerStatus/State` (and, optionally, `EstimatedReturnTime`), letting tests
+   * simulate a server shutdown announcement (Session Client Detect Shutdown conformance unit).
+   * Clients observe the change on their next keep-alive read of `Server_ServerStatus`
+   * (ns=0;i=2256) or, once supported, a `StatusChangeNotification`.
+   *
+   * @see OPC UA Part 5 \u00a712.6
+   */
+  setServerState(state: ServerStateEnum, estimatedReturnTime?: Date): void {
+    this.serverState = state
+    if (estimatedReturnTime !== undefined) {
+      this.serverStatusEstimatedReturnTime.setValue(Variant.newFrom(estimatedReturnTime))
+    }
   }
 
   /**
@@ -561,10 +580,10 @@ export class AddressSpace implements IAddressSpace {
       NodeIdClass.newNumeric(0, ObjectIds.Server_ServerStatus),
       'ServerStatus',
       NodeIdClass.newNumeric(0, 862 /* ServerStatusDataType */),
-      Variant.newFrom(makeServerStatusExtensionObject(startTime, buildInfo)),
+      Variant.newFrom(makeServerStatusExtensionObject(startTime, buildInfo, this.serverState)),
       -1,
     )
-    serverStatus.setValueProvider(() => Variant.newFrom(makeServerStatusExtensionObject(startTime, buildInfo)))
+    serverStatus.setValueProvider(() => Variant.newFrom(makeServerStatusExtensionObject(startTime, buildInfo, this.serverState)))
     this.addReference(server.nodeId, hasComponent, serverStatus.nodeId)
 
     // ns=0;i=2267   ServiceLevel  (Variable, Byte) — 255 = fully available.
@@ -855,6 +874,7 @@ export class AddressSpace implements IAddressSpace {
       undefined,
       AccessLevelFlags.CurrentRead | AccessLevelFlags.CurrentWrite,
     )
+    this.serverStatusEstimatedReturnTime = estimatedReturnTime
     this.addReference(serverStatusId, hasComponent, estimatedReturnTime.nodeId)
 
     // Register the ExtensionObject-encoded DataTypes used below as proper
@@ -1140,13 +1160,15 @@ export class AddressSpace implements IAddressSpace {
 const HAS_SUBTYPE = NodeIdClass.newNumeric(0, ReferenceTypeIds.HasSubtype)
 
 /** Builds the `ServerStatus` value: an ExtensionObject wrapping `ServerStatusDataType`. */
-function makeServerStatusExtensionObject(startTime: Date, buildInfo: BuildInfo): ExtensionObject {
+function makeServerStatusExtensionObject(startTime: Date, buildInfo: BuildInfo, state: ServerStateEnum): ExtensionObject {
   const status = new ServerStatusDataType()
   status.startTime = startTime
   status.currentTime = new Date()
-  status.state = ServerStateEnum.Running
+  status.state = state
   status.buildInfo = buildInfo
   status.secondsTillShutdown = 0
   status.shutdownReason = new LocalizedText(undefined, '')
-    return new ExtensionObject(NodeIdClass.newNumeric(0, 862), 1 /* ExtensionObjectEncoding.Binary */, status)
+  // ExtensionObject.typeId must be the binary *encoding* ID (864), not the DataType ID
+  // (862) — decodeWithEncodingId() looks up the former in the decoder's encodingIdMap.
+  return new ExtensionObject(NodeIdClass.newNumeric(0, 864), 1 /* ExtensionObjectEncoding.Binary */, status)
 }

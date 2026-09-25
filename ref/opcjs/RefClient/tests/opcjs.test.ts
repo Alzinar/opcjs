@@ -10,12 +10,28 @@
 import './opcjsWebSocketPolyfill.js';
 
 import { describe, expect, it } from 'vitest';
-import { createClientFor, verifyGetEndpoints, verifyReadInteger, verifySubscribeChangingNumber } from './shared.js';
+import { createClientFor, verifyDetectShutdown, verifyGetEndpoints, verifyReadInteger, verifySubscribeChangingNumber } from './shared.js';
 import { Client } from 'opcjs-client';
 
 const endpointUrl = 'wss://localhost:62547/RefServer';
+// Test-only, localhost-only HTTP control endpoint (see startControlServer in
+// ref/opcjs/RefServer/index.ts), used only by the "detect shutdown" suite below.
+const controlUrl = 'http://127.0.0.1:62548/server-state';
+
 async function createClient(): Promise<Client> {
     return createClientFor(endpointUrl);
+}
+
+/** Flips RefServer's reported `Server/ServerStatus/State` via its test-only control endpoint. */
+async function setServerState(state: 'Running' | 'Shutdown', estimatedReturnTime?: number): Promise<void> {
+    const response = await fetch(controlUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ state, estimatedReturnTime }),
+    });
+    if (!response.ok) {
+        throw new Error(`Failed to set server state: ${response.status} ${await response.text()}`);
+    }
 }
 
 describe('getEndpoints', () => {
@@ -38,4 +54,17 @@ describe('subscribe', () => {
 
         await verifySubscribeChangingNumber(client);
     }, 15_000);
+});
+
+describe('detect shutdown', () => {
+    it('detects a server shutdown announcement and reconnects afterwards', async () => {
+        const client = await createClientFor(endpointUrl, (configuration) => {
+            // Poll far faster than the 25 s production default so the test doesn't
+            // have to wait that long for the keep-alive read to observe the shutdown.
+            configuration.keepAliveIntervalMs = 200;
+            configuration.minReconnectDelayMs = 100;
+        });
+
+        await verifyDetectShutdown(client, setServerState);
+    }, 20_000);
 });
