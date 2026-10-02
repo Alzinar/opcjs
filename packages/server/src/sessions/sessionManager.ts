@@ -192,6 +192,16 @@ export class SessionManager {
     this.rescheduleTimeout(key, session.revisedTimeoutMs)
   }
 
+  /** Number of sessions currently held (activated or not). */
+  get sessionCount(): number {
+    return this.sessions.size
+  }
+
+  /** Authentication tokens of every session currently held. */
+  getAuthenticationTokens(): NodeId[] {
+    return [...this.sessions.values()].map(session => session.authenticationToken)
+  }
+
   /**
    * Closes all active sessions and cancels their timeout timers.
    *

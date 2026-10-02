@@ -14,7 +14,7 @@ export { BinaryWriter } from './codecs/binary/binaryWriter.js';
 export { SecureChannelTypeEncoder as BinaryEncoderTransform } from './secureChannel/secureChannelTypeEncoder.js';
 export { SecureChannelTypeDecoder as BinaryDecoderTransform } from './secureChannel/secureChannelTypeDecoder.js';
 export { DataValue } from './types/dataValue.js';
-export { StatusCode, StatusCodeFlagBits, StatusCodeGetFlagBits, StatusCodeIs, StatusCodeToString, StatusCodeToStringNumber } from './types/statusCode.js';
+export { StatusCode, uaStatusCode, StatusCodeFlagBits, StatusCodeGetFlagBits, StatusCodeIs, StatusCodeToString, StatusCodeToStringNumber } from './types/statusCode.js';
 export { DiagnosticInfo } from './types/diagnosticInfo.js';
 export { ExpandedNodeId } from './types/expandedNodeId.js';
 export { ExtensionObject } from './types/extensionObject.js';

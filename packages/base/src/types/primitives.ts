@@ -10,6 +10,7 @@
  */
 
 import { BuiltInType } from "./builtinType";
+import type { UaStatusCode } from "./statusCode";
 
 
 export type UaBoolean = boolean;
@@ -82,5 +83,6 @@ export type UaPrimitive =
   | UaString
   | UaDateTime
   | UaGuid
+  | UaStatusCode
   | UaByteString;
 

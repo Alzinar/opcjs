@@ -6,12 +6,13 @@ namespace RefServer;
 
 /// <summary>
 /// Minimal, localhost-only, raw-TCP control listener used exclusively by the ref test suite
-/// (ref/opcjs/RefClientNode/tests/uaNet.test.ts) to simulate a server shutdown announcement for the
-/// Session Client Detect Shutdown conformance unit. Not part of the OPC UA protocol: a client
-/// connects, sends a single line (<c>"Shutdown &lt;estimatedReturnTimeEpochMs&gt;"</c> or
-/// <c>"Running"</c>), and receives <c>"OK"</c> once
-/// <see cref="RefServerHost.SimulateShutdown"/>/<see cref="RefServerHost.SimulateRunning"/> has
-/// been applied.
+/// (ref/opcjs/RefClientNode/tests/uaNet.test.ts). Not part of the OPC UA protocol: a client
+/// connects, sends a single line (<c>"Shutdown &lt;estimatedReturnTimeEpochMs&gt;"</c>, <c>"Running"</c>,
+/// <c>"DropConnections"</c>, <c>"CloseSessions"</c>, <c>"SessionCount"</c>, <c>"AddNamespace &lt;uri&gt;"</c>,
+/// <c>"SetMaxSessions &lt;n&gt;"</c> or <c>"SetMaxSessionTimeout &lt;ms&gt;"</c>),
+/// and receives <c>"OK"</c> (optionally followed by a payload) once the command has been applied, or
+/// <c>"ERROR ..."</c>. The shutdown commands simulate a server shutdown announcement for the Session
+/// Client Detect Shutdown conformance unit.
 ///
 /// Unlike the (purely cosmetic) opcjs/open62541 RefServer simulations, the real SDK's
 /// <see cref="RefServerHost.SimulateShutdown"/> makes the server genuinely reject every
@@ -36,20 +37,14 @@ internal static class ControlServer
                 using var writer = new StreamWriter(stream, Encoding.ASCII) { AutoFlush = true };
 
                 string? line = await reader.ReadLineAsync(cancellationToken);
-                if (line is not null && line.StartsWith("Shutdown", StringComparison.Ordinal))
+                try
                 {
-                    host.SimulateShutdown();
-                    ScheduleAutoRevert(host, line);
-                    await writer.WriteLineAsync("OK");
+                    string payload = Execute(host, line ?? string.Empty);
+                    await writer.WriteLineAsync(payload.Length == 0 ? "OK" : $"OK {payload}");
                 }
-                else if (line is not null && line.StartsWith("Running", StringComparison.Ordinal))
+                catch (Exception ex)
                 {
-                    host.SimulateRunning();
-                    await writer.WriteLineAsync("OK");
-                }
-                else
-                {
-                    await writer.WriteLineAsync($"ERROR unknown command: {line}");
+                    await writer.WriteLineAsync($"ERROR {ex.Message}");
                 }
             }
         }
@@ -60,6 +55,40 @@ internal static class ControlServer
         finally
         {
             listener.Stop();
+        }
+    }
+
+    /// <summary>Executes one control-protocol line (see "Control channel" in ref/README.md) and returns its payload (may be empty).</summary>
+    private static string Execute(RefServerHost host, string line)
+    {
+        string[] parts = line.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
+        switch (parts.FirstOrDefault())
+        {
+            case "Shutdown":
+                host.SimulateShutdown();
+                ScheduleAutoRevert(host, line);
+                return string.Empty;
+            case "Running":
+                host.SimulateRunning();
+                return string.Empty;
+            case "DropConnections":
+                host.DropConnections();
+                return string.Empty;
+            case "CloseSessions":
+                host.CloseSessions();
+                return string.Empty;
+            case "SessionCount":
+                return host.SessionCount.ToString();
+            case "AddNamespace" when parts.Length == 2:
+                return host.AddNamespace(parts[1]).ToString();
+            case "SetMaxSessions" when parts.Length == 2 && int.TryParse(parts[1], out int maxSessions) && maxSessions > 0:
+                host.SetMaxSessions(maxSessions);
+                return string.Empty;
+            case "SetMaxSessionTimeout" when parts.Length == 2 && int.TryParse(parts[1], out int maxTimeoutMs) && maxTimeoutMs > 0:
+                host.SetMaxSessionTimeout(maxTimeoutMs);
+                return string.Empty;
+            default:
+                throw new InvalidOperationException($"unknown command: {line}");
         }
     }
 

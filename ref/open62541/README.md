@@ -9,12 +9,14 @@ Generated/received certificates are stored under the repo-root `tmp/` folder (se
 
 ## RefServer
 
-A minimal server exposing a single writable `Int32` variable node
-(`Integer`) under the `Objects` folder, in the custom namespace
-`http://opcjs.dev/UA/RefServer/` — mirroring [`ref/uaNet/RefServer`](../uaNet/README.md)'s
-node tree. A repeated callback (`UA_Server_addRepeatedCallback`) also
-increments `Integer` on its own every 200 ms, so subscribing clients observe
-a changing value without needing to issue a Write themselves.
+A minimal server exposing the [common address space](../README.md#common-address-space) under the
+`Objects` folder, in the custom namespace `http://opcjs.dev/UA/RefServer/` — mirroring
+[`ref/uaNet/RefServer`](../uaNet/README.md)'s node tree. Repeated callbacks
+(`UA_Server_addRepeatedCallback`) also change `Integer` and `Triangle` on their own every 200 ms, so
+subscribing clients observe changing values without needing to issue a Write themselves. Test-only
+control commands (see [Control channel](../README.md#control-channel), port 62551) are served by a
+separate thread; since open62541 can't enumerate SecureChannels/Sessions, they are tracked from the
+server's notification callback.
 
 Listens on `opc.tcp://localhost:62545/RefServer` and
 `opc.wss://127.0.0.1:62546/RefServer`. Only the latter is reachable by

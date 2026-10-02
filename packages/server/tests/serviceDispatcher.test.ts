@@ -166,6 +166,23 @@ describe('SessionService (via dispatcher)', () => {
     expect(res.responseHeader.requestHandle).toBe(42)
   })
 
+  it('CreateSession above the session limit returns a ServiceFault with BadTooManySessions', async () => {
+    const { dispatcher, cfg } = makeStack()
+    cfg.maxSessions = 0
+    const req = new CreateSessionRequest()
+    req.requestHeader = makeRequestHeader(undefined, 7)
+    req.sessionName = 'test'
+    req.requestedSessionTimeout = 60_000
+    req.maxResponseMessageSize = 0
+    req.clientNonce = new Uint8Array(32)
+
+    const res = await dispatcher.dispatch(req, 1)
+
+    expect(res).toBeInstanceOf(ServiceFault)
+    expect((res as ServiceFault).responseHeader.serviceResult).toBe(StatusCode.BadTooManySessions)
+    expect((res as ServiceFault).responseHeader.requestHandle).toBe(7)
+  })
+
   it('ActivateSession succeeds with anonymous token', async () => {
     const { dispatcher } = makeStack()
 

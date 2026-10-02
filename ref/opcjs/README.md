@@ -75,13 +75,14 @@ npm test
 
 ## RefServer
 
-A minimal server built with `opcjs-server`, exposing a single writable
-`Int32` variable (`Integer`) under the `Objects` folder, in a dedicated
-custom namespace (`http://opcjs.dev/UA/RefServer/`, landing at ns=2),
-matching `uaNet/RefServer` and `open62541/RefServer`. The server also
-increments `Integer` on its own every 200 ms, so subscribing clients observe
-a changing value without needing to issue a Write themselves (`opcjs-client`
-does not implement the Write service yet).
+A minimal server built with `opcjs-server`, exposing the
+[common address space](../README.md#common-address-space) (minus the `Methods` object, as `opcjs-server`
+has no Call service yet) under the `Objects` folder, in a dedicated custom namespace
+(`http://opcjs.dev/UA/RefServer/`, landing at ns=2), matching `uaNet/RefServer` and
+`open62541/RefServer`. The server also changes `Integer` and `Triangle` on its own every 200 ms, so
+subscribing clients observe changing values without needing to issue a Write themselves. Test-only
+control commands (see [Control channel](../README.md#control-channel), HTTP port 62548) are served by
+`index.ts`; the address space is built in `addressSpace.ts`.
 
 `opcjs-server` only implements the WebSocket transport without TLS (see
 [`packages/server/src/transport/webSocketListener.ts`](../../packages/server/src/transport/webSocketListener.ts)),

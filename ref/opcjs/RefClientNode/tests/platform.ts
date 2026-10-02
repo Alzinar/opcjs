@@ -10,7 +10,7 @@ import path from 'node:path';
 import { WebSocket as WsWebSocket } from 'ws';
 import type { CreateDefaultCertificateStoreOptions } from 'opcjs-base';
 
-export { setServerStateHttp, setServerStateTcp, type ServerState } from './serverControl.js';
+export { sendControlCommandHttp, sendControlCommandTcp, setServerStateHttp, setServerStateTcp, type ServerState } from './serverControl.js';
 
 // Shared, easily-gitignored location for every ref/ implementation's generated/received
 // certificates (see /tmp/ in .gitignore). __dirname is tests/, one level deeper than

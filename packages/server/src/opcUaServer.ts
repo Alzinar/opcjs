@@ -69,6 +69,24 @@ export class OpcUaServer {
     return `opc.wss://${cfg.hostname}:${port}${cfg.endpointPath}`
   }
 
+  /** Number of sessions currently held by the server. */
+  get sessionCount(): number {
+    return this.sessionManager?.sessionCount ?? 0
+  }
+
+  /** Closes every session (and its subscriptions) without notifying the clients. */
+  closeAllSessions(): void {
+    for (const token of this.sessionManager?.getAuthenticationTokens() ?? []) {
+      this.subscriptionManager?.deleteSubscriptionsOfSession(token)
+      this.sessionManager?.closeSession(token)
+    }
+  }
+
+  /** Abruptly terminates every open transport connection; sessions stay alive so clients can reconnect to them. */
+  dropAllConnections(): void {
+    this.listener?.dropAllConnections()
+  }
+
   /** Starts the server. Resolves when the listener is bound and ready. */
   async start(): Promise<void> {
     if (this.running) {

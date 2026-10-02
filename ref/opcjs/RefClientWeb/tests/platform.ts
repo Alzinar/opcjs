@@ -11,6 +11,8 @@ export type ServerState = 'Running' | 'Shutdown';
 
 declare module 'vitest/browser' {
     interface BrowserCommands {
+        sendControlCommandTcp: (port: number, line: string) => Promise<string>;
+        sendControlCommandHttp: (url: string, line: string) => Promise<string>;
         setServerStateTcp: (port: number, state: ServerState, estimatedReturnTime?: number) => Promise<void>;
         setServerStateHttp: (url: string, state: ServerState, estimatedReturnTime?: number) => Promise<void>;
     }
@@ -23,6 +25,14 @@ export const certificateStoreOptions: CreateDefaultCertificateStoreOptions = {
 
 // The browser can't open raw TCP sockets, so the control channels are driven from the
 // Vitest (Node) side via browser commands defined in ../vitest.config.ts.
+export async function sendControlCommandTcp(port: number, line: string): Promise<string> {
+    return commands.sendControlCommandTcp(port, line);
+}
+
+export async function sendControlCommandHttp(url: string, line: string): Promise<string> {
+    return commands.sendControlCommandHttp(url, line);
+}
+
 export async function setServerStateTcp(port: number, state: ServerState, estimatedReturnTime?: number): Promise<void> {
     await commands.setServerStateTcp(port, state, estimatedReturnTime);
 }

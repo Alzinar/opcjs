@@ -3,7 +3,7 @@ import type { BrowserCommand } from 'vitest/node';
 import { playwright } from '@vitest/browser-playwright';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { setServerStateHttp, setServerStateTcp, type ServerState } from '../RefClientNode/tests/serverControl.js';
+import { sendControlCommandHttp, sendControlCommandTcp, setServerStateHttp, setServerStateTcp, type ServerState } from '../RefClientNode/tests/serverControl.js';
 import { loadTlsClientCertificate } from './tlsClientCertificate.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -16,6 +16,10 @@ const tlsClientCertificate = await loadTlsClientCertificate(tlsPkiBaseDir);
 
 // The browser can't open raw TCP sockets and the HTTP control endpoint sends no CORS
 // headers, so tests/platform.ts drives the RefServers' control channels through these.
+const sendControlCommandTcpCommand: BrowserCommand<[number, string]> =
+    (_ctx, port, line) => sendControlCommandTcp(port, line);
+const sendControlCommandHttpCommand: BrowserCommand<[string, string]> =
+    (_ctx, url, line) => sendControlCommandHttp(url, line);
 const setServerStateTcpCommand: BrowserCommand<[number, ServerState, number?]> =
     (_ctx, port, state, estimatedReturnTime) => setServerStateTcp(port, state, estimatedReturnTime);
 const setServerStateHttpCommand: BrowserCommand<[string, ServerState, number?]> =
@@ -47,6 +51,8 @@ export default defineConfig({
             }),
             instances: [{ browser: 'chromium' }],
             commands: {
+                sendControlCommandTcp: sendControlCommandTcpCommand,
+                sendControlCommandHttp: sendControlCommandHttpCommand,
                 setServerStateTcp: setServerStateTcpCommand,
                 setServerStateHttp: setServerStateHttpCommand,
             },

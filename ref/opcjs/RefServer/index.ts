@@ -4,10 +4,9 @@
  * from the opcjs stack itself, mirroring ref/uaNet/RefServer and
  * ref/open62541/RefServer.
  *
- * Exposes a writable `Int32` variable ("Integer") and a writable `Int64[]` variable
- * ("Int64Array") under the `Objects`
- * folder, in a dedicated custom namespace (`http://opcjs.dev/UA/RefServer/`,
- * landing at ns=2), matching the other two RefServers.
+ * Exposes the address space shared by all RefServers (see addressSpace.ts and
+ * "Common address space" in ref/README.md), in a dedicated custom namespace
+ * (`http://opcjs.dev/UA/RefServer/`, landing at ns=2).
  *
  * `opcjs-server` only implements the WebSocket transport without TLS (see
  * packages/server/src/transport/webSocketListener.ts): its endpoint is
@@ -15,73 +14,79 @@
  *
  * Also exposes a minimal, localhost-only HTTP control endpoint (see
  * `startControlServer`) that RefClient's ref-test suite uses to simulate a
- * server shutdown against this shared instance (Session Client Detect
- * Shutdown conformance unit) — not part of the OPC UA protocol itself.
+ * server shutdown, drop connections, close sessions, add a namespace, etc. against
+ * this shared instance — not part of the OPC UA protocol itself.
  */
 
 import { createServer as createHttpServer, type Server as HttpServer } from 'node:http';
-import { AccessLevelFlags, AddressSpace, ObjectIds, OpcUaServer, ReferenceTypeIds } from 'opcjs-server';
-import type { VariableNode } from 'opcjs-server';
-import { NodeId, ServerStateEnum, Variant, uaInt32, uaInt64 } from 'opcjs-base';
+import { AddressSpace, ConfigurationServer, OpcUaServer } from 'opcjs-server';
+import { ServerStateEnum, Variant, uaDouble, uaInt32 } from 'opcjs-base';
+import { buildAddressSpace } from './addressSpace.js';
 
 const port = 62547;
 const endpointPath = '/RefServer';
-const CUSTOM_NAMESPACE_URI = 'http://opcjs.dev/UA/RefServer/';
-/** Port for the test-only shutdown-control HTTP endpoint (see `startControlServer`). */
+/** Port for the test-only control HTTP endpoint (see `startControlServer`). */
 const controlPort = 62548;
+/** Lowered from the 10 s default so tests can exercise session expiry quickly. */
+const minSessionTimeoutMs = 1000;
 
-function buildAddressSpace(): { addressSpace: AddressSpace; integerNodeId: NodeId; integerVariable: VariableNode } {
-  const addressSpace = new AddressSpace();
-  const customNamespaceIndex = addressSpace.addNamespace(CUSTOM_NAMESPACE_URI);
-  const integerNodeId = NodeId.newString(customNamespaceIndex, 'Integer');
+type RefServer = { server: OpcUaServer; configuration: ConfigurationServer; addressSpace: AddressSpace };
 
-  const integerVariable = addressSpace.addVariable(
-    integerNodeId,
-    'Integer',
-    NodeId.newNumeric(0, 6), // Int32
-    Variant.newFrom(uaInt32(0)),
-    -1,
-    undefined,
-    AccessLevelFlags.CurrentRead | AccessLevelFlags.CurrentWrite,
-  );
-
-  // Link the variable to the standard Objects folder so it shows up when browsing
-  // from the root of the address space, matching the other RefServers.
-  addressSpace.addReference(
-    NodeId.newNumeric(0, ObjectIds.ObjectsFolder),
-    NodeId.newNumeric(0, ReferenceTypeIds.Organizes),
-    integerVariable.nodeId,
-  );
-
-  const int64ArrayNodeId = NodeId.newString(customNamespaceIndex, 'Int64Array');
-  const int64ArrayVariable = addressSpace.addVariable(
-    int64ArrayNodeId,
-    'Int64Array',
-    NodeId.newNumeric(0, 8), // Int64
-    Variant.newFrom([uaInt64(0n)]),
-    1,
-    undefined,
-    AccessLevelFlags.CurrentRead | AccessLevelFlags.CurrentWrite,
-  );
-  addressSpace.addReference(
-    NodeId.newNumeric(0, ObjectIds.ObjectsFolder),
-    NodeId.newNumeric(0, ReferenceTypeIds.Organizes),
-    int64ArrayVariable.nodeId,
-  );
-
-  return { addressSpace, integerNodeId, integerVariable };
+/**
+ * Executes one line of the control protocol shared by all RefServers
+ * (see "Control channel" in ref/README.md) and returns the reply payload (may be empty).
+ */
+function executeCommand({ server, configuration, addressSpace }: RefServer, line: string): string {
+  const [command, ...args] = line.trim().split(' ');
+  switch (command) {
+    case 'Shutdown': {
+      const estimatedReturnTime = Number(args[0]);
+      addressSpace.setServerState(ServerStateEnum.Shutdown, estimatedReturnTime > 0 ? new Date(estimatedReturnTime) : undefined);
+      return '';
+    }
+    case 'Running':
+      addressSpace.setServerState(ServerStateEnum.Running);
+      return '';
+    case 'DropConnections':
+      server.dropAllConnections();
+      return '';
+    case 'CloseSessions':
+      server.closeAllSessions();
+      return '';
+    case 'SessionCount':
+      return String(server.sessionCount);
+    case 'AddNamespace': {
+      if (args.length !== 1) throw new Error('AddNamespace needs exactly one URI');
+      return String(addressSpace.addNamespace(args[0]));
+    }
+    case 'SetMaxSessions': {
+      const maxSessions = Number(args[0]);
+      if (!Number.isInteger(maxSessions) || maxSessions < 1) throw new Error('SetMaxSessions needs a positive integer');
+      configuration.maxSessions = maxSessions;
+      return '';
+    }
+    case 'SetMaxSessionTimeout': {
+      const maxSessionTimeoutMs = Number(args[0]);
+      if (!(maxSessionTimeoutMs >= minSessionTimeoutMs)) throw new Error(`SetMaxSessionTimeout needs a number >= ${minSessionTimeoutMs}`);
+      configuration.maxSessionTimeoutMs = maxSessionTimeoutMs;
+      return '';
+    }
+    default:
+      throw new Error(`unknown command: ${line}`);
+  }
 }
 
 /**
  * Starts a minimal HTTP server, bound to localhost only, that lets RefClient's ref-test
- * suite simulate a server shutdown announcement against the running `OpcUaServer` instance:
- * `POST /server-state` with a JSON body `{ state: 'Shutdown' | 'Running', estimatedReturnTime?: number }`
- * (epoch ms) sets `Server/ServerStatus/State` (and, optionally, `EstimatedReturnTime`) via
- * `AddressSpace.setServerState`.
+ * suite drive the running `OpcUaServer` instance:
+ * - `POST /control` with a plain-text body holding one control-protocol line.
+ * - `POST /server-state` with a JSON body `{ state: 'Shutdown' | 'Running', estimatedReturnTime?: number }`
+ *   (epoch ms), equivalent to the `Shutdown <epochMs>` / `Running` lines.
+ * Replies `200` with the command's payload, or `400` with the error message.
  */
-function startControlServer(server: OpcUaServer): HttpServer {
+function startControlServer(refServer: RefServer): HttpServer {
   const httpServer = createHttpServer((req, res) => {
-    if (req.method !== 'POST' || req.url !== '/server-state') {
+    if (req.method !== 'POST' || (req.url !== '/control' && req.url !== '/server-state')) {
       res.writeHead(404).end();
       return;
     }
@@ -89,19 +94,15 @@ function startControlServer(server: OpcUaServer): HttpServer {
     req.on('data', (chunk: Buffer) => { body += chunk; });
     req.on('end', () => {
       try {
-        const { state, estimatedReturnTime } = JSON.parse(body) as {
-          state: 'Running' | 'Shutdown';
-          estimatedReturnTime?: number;
-        };
-        const addressSpace = server.addressSpace;
-        if (!(addressSpace instanceof AddressSpace)) {
-          throw new Error('server.addressSpace is not an AddressSpace instance');
+        let line = body;
+        if (req.url === '/server-state') {
+          const { state, estimatedReturnTime } = JSON.parse(body) as {
+            state: 'Running' | 'Shutdown';
+            estimatedReturnTime?: number;
+          };
+          line = state === 'Shutdown' ? `Shutdown ${estimatedReturnTime ?? 0}` : 'Running';
         }
-        addressSpace.setServerState(
-          state === 'Shutdown' ? ServerStateEnum.Shutdown : ServerStateEnum.Running,
-          estimatedReturnTime !== undefined ? new Date(estimatedReturnTime) : undefined,
-        );
-        res.writeHead(200).end();
+        res.writeHead(200).end(executeCommand(refServer, line));
       } catch (error) {
         res.writeHead(400).end(error instanceof Error ? error.message : String(error));
       }
@@ -111,32 +112,42 @@ function startControlServer(server: OpcUaServer): HttpServer {
   return httpServer;
 }
 
-export async function createServer(): Promise<OpcUaServer> {
-  const server = new OpcUaServer({
+export async function createServer(): Promise<RefServer> {
+  const configuration = ConfigurationServer.fromOptions({
     productName: 'RefServer',
     company: 'opcjs',
     port,
     endpointPath,
   });
-  const { addressSpace, integerVariable } = buildAddressSpace();
+  configuration.minSessionTimeoutMs = minSessionTimeoutMs;
+
+  const server = new OpcUaServer(configuration);
+  const { addressSpace, integerVariable, triangleVariable } = buildAddressSpace();
   server.addressSpace = addressSpace;
 
-  // Increment the Integer variable periodically so subscribing clients observe a
-  // changing value, without requiring a client-initiated Write.
+  // Change the Integer and Triangle variables periodically so subscribing clients observe
+  // changing values, without requiring a client-initiated Write.
   let counter = 0;
-  const incrementTimer = setInterval(() => {
+  let triangle = 0;
+  let triangleStep = 1;
+  const changeTimer = setInterval(() => {
     counter += 1;
     integerVariable.setValue(Variant.newFrom(uaInt32(counter)));
-  }, 200);
-  incrementTimer.unref();
 
-  return server;
+    triangle += triangleStep;
+    if (triangle >= 100 || triangle <= 0) triangleStep = -triangleStep;
+    triangleVariable.setValue(Variant.newFrom(uaDouble(triangle)));
+  }, 200);
+  changeTimer.unref();
+
+  return { server, configuration, addressSpace };
 }
 
 async function main(): Promise<void> {
-  const server = await createServer();
+  const refServer = await createServer();
+  const { server } = refServer;
   await server.start();
-  const controlServer = startControlServer(server);
+  const controlServer = startControlServer(refServer);
 
   // opcjs-server's endpointUrl getter labels the scheme "opc.wss://" even though the
   // listener never performs a TLS handshake — see the module doc comment above.

@@ -52,6 +52,9 @@ await application
 
 await application.CheckApplicationInstanceCertificatesAsync(silent: true);
 
+// Lowered from the 10 s default so tests can exercise session expiry quickly.
+application.ApplicationConfiguration.ServerConfiguration.MinSessionTimeout = 1000;
+
 var refServerHost = new RefServerHost();
 await application.StartAsync(refServerHost);
 

@@ -75,6 +75,17 @@ export class ServiceDispatcher {
    * @param channelId - Secure-channel ID the request arrived on
    */
   async dispatch(request: IOpcType, channelId: number): Promise<IOpcType> {
+    try {
+      return await this.route(request, channelId)
+    } catch (err) {
+      if (err instanceof SessionError) {
+        return makeServiceFault(extractRequestHandle(request), err.statusCode)
+      }
+      throw err
+    }
+  }
+
+  private async route(request: IOpcType, channelId: number): Promise<IOpcType> {
     // Session-less discovery and session-creation paths.
     if (request instanceof GetEndpointsRequest) {
       return this.discoverySvc.getEndpoints(request)
@@ -97,15 +108,7 @@ export class ServiceDispatcher {
       return makeServiceFault(0, StatusCode.BadSessionIdInvalid)
     }
 
-    try {
-      this.sessionManager.validateSession(authToken)
-    } catch (err) {
-      if (err instanceof SessionError) {
-        return makeServiceFault(extractRequestHandle(request), err.statusCode)
-      }
-      throw err
-    }
-
+    this.sessionManager.validateSession(authToken)
     this.sessionManager.touchSession(authToken)
 
     if (isRequestStale(request)) {

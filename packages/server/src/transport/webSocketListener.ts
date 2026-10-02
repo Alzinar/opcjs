@@ -53,6 +53,13 @@ export class WebSocketListener {
     })
   }
 
+  /** Abruptly terminates every open client connection while the listener keeps accepting new ones. */
+  public dropAllConnections(): void {
+    for (const client of this.server?.clients ?? []) {
+      client.terminate()
+    }
+  }
+
   /**
    * Stops the listener and closes all open server sockets.
    */

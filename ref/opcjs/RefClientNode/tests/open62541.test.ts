@@ -9,18 +9,30 @@
 
 import { describe, it } from 'vitest';
 import { Client } from 'opcjs-client';
-import { createClientFor, verifyDetectShutdown, verifyGetEndpoints, verifyReadInteger, verifyReadWriteInt64Array, verifySubscribeChangingNumber } from './shared.js';
-import { setServerStateTcp } from './platform.js';
+import { createClientFor, verifyCommonAddressSpaceOf, verifyControlChannel, verifyDetectShutdown, verifyDropConnections, verifyGetEndpoints, verifyReadInteger, verifyReadWriteInt64Array, verifySessionLimit, verifySessionTimeout, verifySubscribeChangingNumber } from './shared.js';
+import { sendControlCommandTcp, setServerStateTcp } from './platform.js';
 
 const endpointUrl = 'wss://127.0.0.1:62546/RefServer';
 // Test-only, localhost-only control listener (see controlServerThread in
 // ref/open62541/RefServer/src/main.c).
 const controlPort = 62551;
 
+async function control(line: string): Promise<string> {
+  return sendControlCommandTcp(controlPort, line);
+}
+
 async function createClient(): Promise<Client> {
   return createClientFor(endpointUrl);
 }
 
+
+// Runs first: DropConnections also severs connections lingering from earlier tests of this file,
+// which would surface as unhandled rejections inside their (already finished) clients.
+describe('drop connections', () => {
+    it('drops open connections of the open62541 RefServer', async () => {
+        await verifyDropConnections(endpointUrl, control);
+    });
+});
 
 describe('getEndpoints', () => {
 
@@ -71,4 +83,32 @@ describe('detect shutdown', () => {
 
         await verifyDetectShutdown(client, (state, estimatedReturnTime) => setServerStateTcp(controlPort, state, estimatedReturnTime));
     }, 20_000);
+});
+
+describe('common address space', () => {
+
+    it('exposes the common address space on the open62541 RefServer', async () => {
+        const client = await createClient();
+
+        await verifyCommonAddressSpaceOf(client, { hasMethods: true });
+    }, 30_000);
+});
+
+describe('control channel', () => {
+
+    it('tracks sessions, adds namespaces and closes sessions of the open62541 RefServer', async () => {
+        const client = await createClient();
+
+        await verifyControlChannel(client, control);
+    }, 30_000);
+
+    it('rejects sessions above the limit set via SetMaxSessions on the open62541 RefServer', async () => {
+        await verifySessionLimit(createClient, control);
+    }, 30_000);
+
+    it('expires idle sessions after the timeout set via SetMaxSessionTimeout on the open62541 RefServer', async () => {
+        const client = await createClient();
+
+        await verifySessionTimeout(client, control);
+    }, 40_000);
 });

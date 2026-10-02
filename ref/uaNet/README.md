@@ -10,11 +10,11 @@ Generated/received certificates are stored under the repo-root `tmp/` folder (se
 
 ## RefServer
 
-A minimal server exposing a single writable `Int32` variable node
-(`Integer`) under the `Objects` folder. `RefNodeManager` also increments
-`Integer` on its own every 200 ms via a `System.Threading.Timer`, so
-subscribing clients observe a changing value without needing to issue a
-Write themselves.
+A minimal server exposing the [common address space](../README.md#common-address-space) under the
+`Objects` folder. `RefNodeManager` also changes `Integer` and `Triangle` on its own every 200 ms via a
+`System.Threading.Timer`, so subscribing clients observe changing values without needing to issue a
+Write themselves. Test-only control commands (see [Control channel](../README.md#control-channel),
+port 62549) are served by `ControlServer.cs`.
 
 - `Program.cs` — builds the `ApplicationConfiguration`, creates a
   self-signed application certificate on first run, registers the
@@ -23,8 +23,7 @@ Write themselves.
   `opc.wss://localhost:62544/RefServer`.
 - `RefServerHost.cs` — `StandardServer` subclass that wires up the custom
   node manager.
-- `RefNodeManager.cs` — `CustomNodeManager2` subclass that creates the
-  `Integer` variable.
+- `RefNodeManager.cs` — `CustomNodeManager2` subclass that creates the common address space.
 - `WebSockets/` — `opc.wss://` transport listener/channel implementation
   (`ITransportListener`/`ITransportChannel` plugged into the SDK's static
   `TransportBindings` registry), hosted over Kestrel/ASP.NET Core. Needed
