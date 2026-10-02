@@ -1,21 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { expect } from 'vitest';
 import { Client, ConfigurationClient, UserIdentity } from 'opcjs-client';
 import { createDefaultCertificateStore, NodeId, StatusCode, Variant } from 'opcjs-base';
-import path from 'path';
-import net from 'node:net';
-
-
-// Shared, easily-gitignored location for every ref/ implementation's generated/received
-// certificates (see /tmp/ in .gitignore). __dirname is tests/, one level deeper than
-// the repo-root-relative path expects, hence the extra '..'.
-const pkiBaseDir = path.resolve(__dirname, '../../../..', 'tmp', 'ref', 'opcjs', 'RefClient', 'pki');
+import { certificateStoreOptions, type ServerState } from './platform.js';
 
 export async function createClientFor(endpoint: string, configure?: (configuration: ConfigurationClient) => void): Promise<Client> {
     const configuration = ConfigurationClient.getSimple('RefClient', 'opcjs');
     configure?.(configuration);
     // Reference servers use self-signed certificates; trust them on first use rather
     // than requiring them to be pre-installed in the trust list.
-    const certificateStore = await createDefaultCertificateStore({ pkiBaseDir, unknownCertificatePolicy: 'trust' });
+    const certificateStore = await createDefaultCertificateStore({ ...certificateStoreOptions, unknownCertificatePolicy: 'trust' });
 
     // Supplying our own certificateStore opts out of Client's automatic own-certificate
     // generation (it assumes a caller-supplied store is already provisioned), so replicate
@@ -113,32 +106,6 @@ export async function verifyGetEndpoints(client: Client, endpointUrl: string): P
 }
 
 /**
- * Flips a RefServer's `Server/ServerStatus/State` via a raw-TCP, line-based test-only control
- * listener: connects to `port`, sends a single line (`Shutdown <epochMs>` or `Running`), and
- * expects a reply starting with `OK`. Used by servers whose control channel is a plain TCP
- * listener (ref/uaNet/RefServer's ControlServer.cs, ref/open62541/RefServer's controlServerThread)
- * rather than HTTP. Not part of the OPC UA protocol itself.
- */
-export async function setServerStateTcp(
-    port: number,
-    state: 'Running' | 'Shutdown',
-    estimatedReturnTime?: number,
-): Promise<void> {
-    return new Promise((resolve, reject) => {
-        const socket = net.createConnection({ host: '127.0.0.1', port }, () => {
-            socket.write(state === 'Shutdown' ? `Shutdown ${estimatedReturnTime ?? 0}\n` : 'Running\n');
-        });
-        let data = '';
-        socket.on('data', (chunk) => { data += chunk.toString(); });
-        socket.on('error', reject);
-        socket.on('close', () => {
-            if (data.trim().startsWith('OK')) resolve();
-            else reject(new Error(`control connection to port ${port} failed: ${data || '(no response)'}`));
-        });
-    });
-}
-
-/**
  * Session Client Detect Shutdown conformance unit (OPC UA Part 5, §12.6; Part 4, §5.13.5),
  * shared across all three RefServers: connects `client`, triggers a shutdown announcement via
  * `setServerState` (each RefServer exposes its own test-only, non-OPC-UA control channel — see
@@ -147,7 +114,7 @@ export async function setServerStateTcp(
  */
 export async function verifyDetectShutdown(
     client: Client,
-    setServerState: (state: 'Running' | 'Shutdown', estimatedReturnTime?: number) => Promise<void>,
+    setServerState: (state: ServerState, estimatedReturnTime?: number) => Promise<void>,
 ): Promise<void> {
     const shutdownDetected = new Promise<void>((resolve) => {
         client.onServerShutdown = () => resolve();

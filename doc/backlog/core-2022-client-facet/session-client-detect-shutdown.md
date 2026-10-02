@@ -86,7 +86,7 @@ Fires instead of scheduling a reconnect when `EstimatedReturnTime` is `MinDateTi
 
 `tests/unit/detectShutdown.test.ts` — covers both detection paths, deduplication, `onServerShutdown` firing, and reconnect scheduling/service reinitialisation.
 
-`ref/opcjs/RefClient/tests/{opcjs,uaNet,open62541}.test.ts` (`describe('detect shutdown', ...)`) — end-to-end ref tests against all three RefServers: each exposes its own test-only, non-OPC-UA control channel that flips `Server/ServerStatus/State` to `Shutdown` with an estimated return time, and the test asserts the real client, over the wire, fires `onServerShutdown` and successfully reconnects and reads again afterwards.
+`ref/opcjs/RefClientNode/tests/{opcjs,uaNet,open62541}.test.ts` (`describe('detect shutdown', ...)`) — end-to-end ref tests against all three RefServers: each exposes its own test-only, non-OPC-UA control channel that flips `Server/ServerStatus/State` to `Shutdown` with an estimated return time, and the test asserts the real client, over the wire, fires `onServerShutdown` and successfully reconnects and reads again afterwards.
 
 - **opcjs** (`ref/opcjs/RefServer/index.ts`): a localhost-only HTTP control endpoint (`startControlServer`).
 - **uaNet** (`ref/uaNet/RefServer/ControlServer.cs`): a raw-TCP control listener calling the real SDK's `StandardServer.SetServerState()` — this genuinely rejects in-flight requests with `Bad_ServerHalted` (spec-conformant), so the control listener also auto-reverts back to `Running` once the given return time elapses, so the client's reconnect lands on a server that has actually come back.

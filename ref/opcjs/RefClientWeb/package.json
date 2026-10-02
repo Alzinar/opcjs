@@ -1,0 +1,24 @@
+{
+  "name": "ref-client-web",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Runs the RefClientNode interop tests against the reference OPC UA servers inside a headless browser",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:dev": "vitest",
+    "install:browser": "playwright install chromium"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "opcjs-base": "file:../../../packages/base",
+    "opcjs-client": "file:../../../packages/client"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "@vitest/browser-playwright": "^4.1.11",
+    "playwright": "^1.56.0",
+    "typescript": "^5.7.3",
+    "vitest": "^4.1.11"
+  }
+}

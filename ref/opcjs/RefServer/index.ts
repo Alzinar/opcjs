@@ -1,6 +1,6 @@
 /**
  * RefServer — reference OPC UA server built with `opcjs-server`, used to
- * exercise `opcjs-client` (via ref/opcjs/RefClient) against a server built
+ * exercise `opcjs-client` (via ref/opcjs/RefClientNode and ref/opcjs/RefClientWeb) against a server built
  * from the opcjs stack itself, mirroring ref/uaNet/RefServer and
  * ref/open62541/RefServer.
  *

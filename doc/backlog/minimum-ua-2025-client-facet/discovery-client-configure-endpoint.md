@@ -27,11 +27,12 @@ SecureChannel, bypassing an internal `GetEndpoints` round-trip entirely. See
 [discoveryService.test.ts](../../../packages/client/tests/unit/discoveryService.test.ts).
 
 Cross-SDK interop coverage:
-[uaNet.test.ts](../../../ref/opcjs/RefClient/tests/uaNet.test.ts),
-[open62541.test.ts](../../../ref/opcjs/RefClient/tests/open62541.test.ts) and
-[opcjs.test.ts](../../../ref/opcjs/RefClient/tests/opcjs.test.ts) each call
+[uaNet.test.ts](../../../ref/opcjs/RefClientNode/tests/uaNet.test.ts),
+[open62541.test.ts](../../../ref/opcjs/RefClientNode/tests/open62541.test.ts) and
+[opcjs.test.ts](../../../ref/opcjs/RefClientNode/tests/opcjs.test.ts) each call
 `Client.getEndpoints()` against a real reference server (uaNet, open62541, opcjs) and assert the
-returned `EndpointDescription[]` is well-formed.
+returned `EndpointDescription[]` is well-formed (run both in Node.js and, via
+`ref/opcjs/RefClientWeb`, in headless Chromium).
 
 ## Specification References
 

@@ -25,7 +25,7 @@ export const open62541IntegerNodeId = NodeId.newString(2, 'Integer');
 
 // ref/opcjs/RefServer's endpoint. opcjs-server only implements the WebSocket
 // transport without TLS (see packages/server/src/transport/webSocketListener.ts),
-// so this is really served over unencrypted ws://; tests/opcjsWebSocketPolyfill.ts
+// so this is really served over unencrypted ws://; downgradeWssToWs() in tests/platform.ts
 // rewrites the wss:// scheme opcjs-client always dials back down to ws:// for this
 // endpoint. Its Integer node lives in its own custom namespace
 // ("http://opcjs.dev/UA/RefServer/", ns=2), matching the other two RefServers.
@@ -34,7 +34,7 @@ export const opcjsIntegerNodeId = NodeId.newString(2, 'Integer');
 
 // Shared, easily-gitignored location for every ref/ implementation's generated/received
 // certificates (see /tmp/ in .gitignore).
-const pkiBaseDir = path.resolve(__dirname, '../../..', 'tmp', 'ref', 'opcjs', 'RefClient', 'pki');
+const pkiBaseDir = path.resolve(__dirname, '../../..', 'tmp', 'ref', 'opcjs', 'RefClientNode', 'pki');
 
 async function createClientFor(endpoint: string): Promise<Client> {
   const configuration = ConfigurationClient.getSimple('RefClient', 'opcjs');

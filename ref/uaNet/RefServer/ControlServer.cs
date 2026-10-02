@@ -6,7 +6,7 @@ namespace RefServer;
 
 /// <summary>
 /// Minimal, localhost-only, raw-TCP control listener used exclusively by the ref test suite
-/// (ref/opcjs/RefClient/tests/uaNet.test.ts) to simulate a server shutdown announcement for the
+/// (ref/opcjs/RefClientNode/tests/uaNet.test.ts) to simulate a server shutdown announcement for the
 /// Session Client Detect Shutdown conformance unit. Not part of the OPC UA protocol: a client
 /// connects, sends a single line (<c>"Shutdown &lt;estimatedReturnTimeEpochMs&gt;"</c> or
 /// <c>"Running"</c>), and receives <c>"OK"</c> once

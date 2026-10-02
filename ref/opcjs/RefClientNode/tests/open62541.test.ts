@@ -7,9 +7,10 @@
  * before Vitest executes any test in this suite.
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, it } from 'vitest';
 import { Client } from 'opcjs-client';
-import { createClientFor, setServerStateTcp, verifyDetectShutdown, verifyGetEndpoints, verifyReadInteger, verifySubscribeChangingNumber } from './shared.js';
+import { createClientFor, verifyDetectShutdown, verifyGetEndpoints, verifyReadInteger, verifySubscribeChangingNumber } from './shared.js';
+import { setServerStateTcp } from './platform.js';
 
 const endpointUrl = 'wss://127.0.0.1:62546/RefServer';
 // Test-only, localhost-only control listener (see controlServerThread in

@@ -9,19 +9,25 @@ Reference implementations used for cross-SDK OPC UA interoperability testing.
   built from scratch with the open62541 C library, over both `opc.tcp://` and `opc.wss://`.
 - [`opcjs/RefServer`](opcjs/README.md#refserver) — the same minimal `Integer` variable,
   built with `opcjs-server`, over an unencrypted `ws://` (no TLS support yet).
-- [`opcjs/RefClient`](opcjs/README.md) — a minimal OPC UA client built with `opcjs-client`,
-  used to exercise both RefServers (and, over time, other 3rd-party reference servers/clients).
+- [`opcjs/RefClientNode`](opcjs/README.md#refclientnode) — a minimal OPC UA client built with
+  `opcjs-client`, running in Node.js, used to exercise all RefServers (and, over time, other
+  3rd-party reference servers/clients).
+- [`opcjs/RefClientWeb`](opcjs/README.md#refclientweb) — runs the very same test specs as
+  `RefClientNode`, but inside a headless Chromium (Vitest browser mode + Playwright).
 
 ## Certificates
 
 Every reference implementation generates/receives its certificates under a single
 gitignored `/tmp/` folder at the repository root (see `.gitignore`), mirroring the source
-tree: e.g. `tmp/ref/uaNet/RefServer/pki`, `tmp/ref/opcjs/RefClient/pki`. Delete `/tmp/` at
-any time to reset every implementation's PKI state.
+tree: e.g. `tmp/ref/uaNet/RefServer/pki`, `tmp/ref/opcjs/RefClientNode/pki`. Delete `/tmp/` at
+any time to reset every implementation's PKI state. `RefClientWeb` keeps its OPC UA application
+certificate in the browser's IndexedDB instead (a fresh, empty profile per run).
 
 ## Running the test suite
 
-The tests live in `ref/opcjs/RefClient/tests` (Vitest). A `globalSetup.ts` automatically
+The tests live in `ref/opcjs/RefClientNode/tests` (Vitest) and are executed twice: once in
+Node.js by `RefClientNode` and once in headless Chromium by `RefClientWeb`. A `globalSetup.ts`
+(shared by both) automatically
 starts `uaNet/RefServer` (`dotnet run`), the prebuilt `open62541/RefServer` binary, and the
 built `opcjs/RefServer` (`node dist/index.js`) before the suite and stops them afterward —
 no manual server setup is required.
@@ -37,15 +43,26 @@ npm run test:ref
 Runs [`ref/test.sh`](test.sh), which builds `opcjs-base`/`opcjs-client`/`opcjs-server`
 (via Nx, so a step is skipped when already up to date), builds `uaNet/RefServer`
 (`dotnet build`), `open62541/RefServer` (`cmake`/`ninja`, skipped once already configured),
-and `opcjs/RefServer` (`npm install && npm run build`), installs `RefClient`'s dependencies,
-and runs its full test suite — then always stops any leftover server process and deletes the
-generated-certificates folder (`/tmp/`) afterward, whether the tests passed or failed.
+and `opcjs/RefServer` (`npm install && npm run build`), installs `RefClientNode`'s and
+`RefClientWeb`'s dependencies (plus Playwright's headless Chromium), and runs both test
+suites one after the other — then always stops any leftover server process and deletes the
+generated-certificates folder (`/tmp/`) afterward, whether the tests passed or failed. The
+script fails if either suite fails.
+
+Headless Chromium needs a few system libraries. If the browser fails to launch, install them
+once with (requires root):
+
+```bash
+cd ref/opcjs/RefClientWeb
+sudo npx playwright install-deps chromium
+```
 
 ### Run all tests
 
 ```bash
-cd ref/opcjs/RefClient
+cd ref/opcjs/RefClientNode   # or ref/opcjs/RefClientWeb
 npm install   # first time only
+npm run install:browser       # RefClientWeb only, first time only
 npm test
 ```
 
@@ -54,7 +71,7 @@ npm test
 Pass a path (or a substring of it) to `vitest run` to only run matching test files:
 
 ```bash
-cd ref/opcjs/RefClient
+cd ref/opcjs/RefClientNode   # or ref/opcjs/RefClientWeb
 npm test -- tests/uaNet.test.ts
 ```
 
@@ -83,7 +100,7 @@ dotnet run
 and run the tests against it in another, skipping the automatic start/stop:
 
 ```bash
-cd ref/opcjs/RefClient
+cd ref/opcjs/RefClientNode   # or ref/opcjs/RefClientWeb
 OPCUA_EXTERNAL_SERVER=1 npm test
 ```
 

@@ -1,5 +1,5 @@
 {
-  "name": "ref-client",
+  "name": "ref-client-node",
   "version": "1.0.0",
   "description": "Reference OPC UA client built with opcjs, used to exercise RefServer and other reference/3rd-party OPC UA servers",
   "type": "module",

@@ -1,5 +1,5 @@
 /**
- * Vitest global setup for RefClient integration tests.
+ * Vitest global setup for the RefClientNode and RefClientWeb integration tests.
  *
  * Starts the RefServer (ref/uaNet/RefServer) via `dotnet run` before any test
  * runs and shuts it down once all tests have completed. No test is allowed to

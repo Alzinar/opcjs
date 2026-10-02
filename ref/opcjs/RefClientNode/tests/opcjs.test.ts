@@ -7,11 +7,13 @@
  * before Vitest executes any test in this suite.
  */
 
-import './opcjsWebSocketPolyfill.js';
-
-import { describe, expect, it } from 'vitest';
+import { describe, it } from 'vitest';
 import { createClientFor, verifyDetectShutdown, verifyGetEndpoints, verifyReadInteger, verifySubscribeChangingNumber } from './shared.js';
+import { downgradeWssToWs, setServerStateHttp, type ServerState } from './platform.js';
 import { Client } from 'opcjs-client';
+
+// opcjs-server only exposes an unencrypted ws:// listener.
+downgradeWssToWs();
 
 const endpointUrl = 'wss://localhost:62547/RefServer';
 // Test-only, localhost-only HTTP control endpoint (see startControlServer in
@@ -22,16 +24,8 @@ async function createClient(): Promise<Client> {
     return createClientFor(endpointUrl);
 }
 
-/** Flips RefServer's reported `Server/ServerStatus/State` via its test-only control endpoint. */
-async function setServerState(state: 'Running' | 'Shutdown', estimatedReturnTime?: number): Promise<void> {
-    const response = await fetch(controlUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ state, estimatedReturnTime }),
-    });
-    if (!response.ok) {
-        throw new Error(`Failed to set server state: ${response.status} ${await response.text()}`);
-    }
+async function setServerState(state: ServerState, estimatedReturnTime?: number): Promise<void> {
+    return setServerStateHttp(controlUrl, state, estimatedReturnTime);
 }
 
 describe('getEndpoints', () => {

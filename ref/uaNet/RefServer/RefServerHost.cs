@@ -21,7 +21,7 @@ internal sealed class RefServerHost : StandardServer
 
     /// <summary>
     /// Test-only hook for the Session Client Detect Shutdown conformance unit's ref test
-    /// (see ref/opcjs/RefClient/tests/uaNet.test.ts): flips the real, standard
+    /// (see ref/opcjs/RefClientNode/tests/uaNet.test.ts): flips the real, standard
     /// <c>Server/ServerStatus/State</c> to <see cref="ServerState.Shutdown"/> using the SDK's
     /// own <see cref="StandardServer.SetServerState"/> — not part of the OPC UA protocol itself.
     /// </summary>

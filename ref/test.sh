@@ -12,11 +12,12 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 REF_SERVER_DIR="$SCRIPT_DIR/uaNet/RefServer"
 OPEN62541_SERVER_DIR="$SCRIPT_DIR/open62541/RefServer"
 OPCJS_SERVER_DIR="$SCRIPT_DIR/opcjs/RefServer"
-REF_CLIENT_DIR="$SCRIPT_DIR/opcjs/RefClient"
+REF_CLIENT_NODE_DIR="$SCRIPT_DIR/opcjs/RefClientNode"
+REF_CLIENT_WEB_DIR="$SCRIPT_DIR/opcjs/RefClientWeb"
 
 cleanup() {
     echo "[test:ref] Cleaning up..."
-    # RefClient's own vitest globalSetup already stops both RefServers on a normal
+    # The clients' vitest globalSetup already stops all RefServers on a normal
     # exit; this catches anything left behind by an interrupted/failed run.
     pkill -9 -f "uaNet/RefServer/bin/.*/RefServer$" 2>/dev/null || true
     pkill -9 -f "RefServer\.dll" 2>/dev/null || true
@@ -38,9 +39,20 @@ echo "[test:ref] Configuring/building the open62541 RefServer (cmake, skipped on
 echo "[test:ref] Installing/building the opcjs RefServer..."
 (cd "$OPCJS_SERVER_DIR" && npm install && npm run build) || exit 1
 
-echo "[test:ref] Installing RefClient dependencies..."
-(cd "$REF_CLIENT_DIR" && npm install) || exit 1
+echo "[test:ref] Installing RefClientNode dependencies..."
+(cd "$REF_CLIENT_NODE_DIR" && npm install) || exit 1
 
-echo "[test:ref] Running RefClient tests..."
-(cd "$REF_CLIENT_DIR" && npm test)
+echo "[test:ref] Installing RefClientWeb dependencies and headless Chromium..."
+(cd "$REF_CLIENT_WEB_DIR" && npm install && npm run install:browser) || exit 1
+
+echo "[test:ref] Running RefClientNode tests..."
+(cd "$REF_CLIENT_NODE_DIR" && npm test)
+node_result=$?
+
+echo "[test:ref] Running RefClientWeb tests (headless Chromium)..."
+(cd "$REF_CLIENT_WEB_DIR" && npm test)
+web_result=$?
+
+echo "[test:ref] RefClientNode exit code: $node_result, RefClientWeb exit code: $web_result"
+[[ $node_result -eq 0 && $web_result -eq 0 ]]
 exit $?

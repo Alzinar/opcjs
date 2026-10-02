@@ -27,7 +27,7 @@
 
 #define TCP_PORT 62545
 #define WSS_PORT 62546
-/* Test-only, localhost-only control listener used by ref/opcjs/RefClient/tests/open62541.test.ts
+/* Test-only, localhost-only control listener used by ref/opcjs/RefClientNode/tests/open62541.test.ts
  * (Session Client Detect Shutdown conformance unit) — not part of the OPC UA protocol. */
 #define CONTROL_PORT 62551
 /* libwebsockets binds the vhost "iface" directly to a numeric IP or network

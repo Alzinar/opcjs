@@ -9,7 +9,8 @@
 
 import { describe, it } from 'vitest';
 import { Client } from 'opcjs-client';
-import { createClientFor, setServerStateTcp, verifyDetectShutdown, verifyGetEndpoints, verifyReadInteger, verifySubscribeChangingNumber } from './shared.js';
+import { createClientFor, verifyDetectShutdown, verifyGetEndpoints, verifyReadInteger, verifySubscribeChangingNumber } from './shared.js';
+import { setServerStateTcp } from './platform.js';
 
 const endpointUrl = 'wss://localhost:62544/RefServer/';
 // Test-only, localhost-only control listener (see ControlServer.cs in ref/uaNet/RefServer).
