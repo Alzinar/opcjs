@@ -43,6 +43,7 @@ export const ObjectIds = {
   Server_ServerArray: 2254,
   Server_NamespaceArray: 2255,
   Server_ServerStatus: 2256,
+  Server_ServerStatus_State: 2259,
   Server_ServiceLevel: 2267,
   Server_Auditing: 2994,
   Server_ServerCapabilities: 2268,

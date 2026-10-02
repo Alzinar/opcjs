@@ -45,3 +45,31 @@ dotnet run
 The server accepts anonymous sessions with security policy `None` or
 `Basic256Sha256` (Sign / SignAndEncrypt), on both endpoints.
 
+## RefClient
+
+An xUnit test project that uses the same NuGet packages as `RefServer`
+(`OPCFoundation.NetStandard.Opc.Ua.*` plus `UA.NETStandard.WebSocket`, with
+`Opc.Ua.Client` added) to run the same checks as
+[`ref/opcjs/RefClientNode/tests/opcjs.test.ts`](../opcjs/RefClientNode/tests/opcjs.test.ts)
+— get endpoints, read `Integer`, subscribe to the changing `Integer`, detect a shutdown
+announcement — against [`ref/opcjs/RefServer`](../opcjs/README.md#refserver).
+
+- `OpcjsServerFixture.cs` — starts `ref/opcjs/RefServer` (`node dist/index.js`, build it
+  first with `npm run build`) once per run, or uses an already running one when
+  `OPCUA_EXTERNAL_SERVER=1` is set; builds the client `ApplicationConfiguration` (PKI under
+  the repo-root `tmp/`).
+- `TlsTerminatingProxy.cs` — the UA-.NETStandard WebSocket transport always dials `wss://`,
+  while `opcjs-server` only speaks plain `ws://`, so the tests connect through a small
+  TLS-terminating TCP proxy with a throw-away self-signed certificate. That certificate is
+  added to the current user's trusted root store for the duration of the run (the transport
+  offers no certificate-validation hook) and removed afterwards.
+- `OpcjsRefServerTests.cs` — the tests.
+
+### Running
+
+```bash
+(cd ref/opcjs/RefServer && npm install && npm run build)
+cd ref/uaNet/RefClient
+dotnet test
+```
+

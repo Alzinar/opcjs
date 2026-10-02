@@ -4,6 +4,7 @@ import {
   DataValue,
   NodeId,
   SamplingIntervalDiagnosticsDataType,
+  ServerStateEnum,
   Variant,
   StatusCode,
   uaInt32,
@@ -55,6 +56,16 @@ describe('AddressSpace – pre-populated nodes', () => {
     const as = new AddressSpace()
     const dv = as.read(NodeId.newNumeric(0, 2256), AttributeId.NodeId)
     expect(dv.statusCode).toBe(StatusCode.Good)
+  })
+
+  it('ServerStatus/State node (i=2259) follows setServerState', () => {
+    const as = new AddressSpace()
+    const stateId = NodeId.newNumeric(0, 2259)
+    expect(as.read(stateId, AttributeId.Value).value?.value).toBe(0) // Running
+
+    as.setServerState(ServerStateEnum.Shutdown)
+
+    expect(as.read(stateId, AttributeId.Value).value?.value).toBe(4) // Shutdown
   })
 })
 

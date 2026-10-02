@@ -586,6 +586,18 @@ export class AddressSpace implements IAddressSpace {
     serverStatus.setValueProvider(() => Variant.newFrom(makeServerStatusExtensionObject(startTime, buildInfo, this.serverState)))
     this.addReference(server.nodeId, hasComponent, serverStatus.nodeId)
 
+    // ns=0;i=2259   ServerStatus/State  (Variable, ServerState) — the node most clients'
+    // keep-alive reads (e.g. UA-.NETStandard) to detect a shutdown announcement.
+    const serverStatusState = this.addVariable(
+      NodeIdClass.newNumeric(0, ObjectIds.Server_ServerStatus_State),
+      'State',
+      NodeIdClass.newNumeric(0, 852 /* ServerState */),
+      Variant.newFrom(uaInt32(this.serverState)),
+      -1,
+    )
+    serverStatusState.setValueProvider(() => Variant.newFrom(uaInt32(this.serverState)))
+    this.addReference(serverStatus.nodeId, hasComponent, serverStatusState.nodeId)
+
     // ns=0;i=2267   ServiceLevel  (Variable, Byte) — 255 = fully available.
     const serviceLevel = this.addVariable(
       NodeIdClass.newNumeric(0, ObjectIds.Server_ServiceLevel),

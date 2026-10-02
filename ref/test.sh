@@ -14,6 +14,7 @@ OPEN62541_SERVER_DIR="$SCRIPT_DIR/open62541/RefServer"
 OPCJS_SERVER_DIR="$SCRIPT_DIR/opcjs/RefServer"
 REF_CLIENT_NODE_DIR="$SCRIPT_DIR/opcjs/RefClientNode"
 REF_CLIENT_WEB_DIR="$SCRIPT_DIR/opcjs/RefClientWeb"
+UANET_CLIENT_DIR="$SCRIPT_DIR/uaNet/RefClient"
 
 cleanup() {
     echo "[test:ref] Cleaning up..."
@@ -53,6 +54,10 @@ echo "[test:ref] Running RefClientWeb tests (headless Chromium)..."
 (cd "$REF_CLIENT_WEB_DIR" && npm test)
 web_result=$?
 
-echo "[test:ref] RefClientNode exit code: $node_result, RefClientWeb exit code: $web_result"
-[[ $node_result -eq 0 && $web_result -eq 0 ]]
+echo "[test:ref] Running uaNet RefClient tests (UA-.NETStandard client vs. opcjs RefServer)..."
+(cd "$UANET_CLIENT_DIR" && dotnet test)
+dotnet_result=$?
+
+echo "[test:ref] RefClientNode exit code: $node_result, RefClientWeb exit code: $web_result, uaNet RefClient exit code: $dotnet_result"
+[[ $node_result -eq 0 && $web_result -eq 0 && $dotnet_result -eq 0 ]]
 exit $?
