@@ -9,7 +9,7 @@
 
 import { describe, it } from 'vitest';
 import { Client } from 'opcjs-client';
-import { createClientFor, verifyCommonAddressSpaceOf, verifyControlChannel, verifyDetectShutdown, verifyDropConnections, verifyGetEndpoints, verifyReadInteger, verifyReadWriteInt64Array, verifySessionLimit, verifySessionTimeout, verifySubscribeChangingNumber } from './shared.js';
+import { createClientFor, verifyCommonAddressSpaceOf, verifyControlChannel, verifyDetectShutdown, verifyDropConnections, verifyGetEndpoints, verifyImpersonate, verifyReadInteger, verifyReadWriteInt64Array, verifySessionLimit, verifySessionTimeout, verifySubscribeChangingNumber } from './shared.js';
 import { sendControlCommandTcp, setServerStateTcp } from './platform.js';
 
 const endpointUrl = 'wss://localhost:62544/RefServer/';
@@ -23,6 +23,9 @@ async function control(line: string): Promise<string> {
 async function createClient(): Promise<Client> {
   return createClientFor(endpointUrl);
 }
+
+const refUserName = process.env.OPCUA_REF_USERNAME;
+const refPassword = process.env.OPCUA_REF_PASSWORD;
 
 // Runs first: DropConnections also severs connections lingering from earlier tests of this file,
 // which would surface as unhandled rejections inside their (already finished) clients.
@@ -43,6 +46,15 @@ describe('getEndpoints', () => {
     const client = await createClient();
 
     await verifyReadInteger(client);
+  });
+});
+
+describe('impersonate', () => {
+  it.skipIf(!refUserName || !refPassword)('rejects bad credentials and reconnects with the configured identity', async () => {
+    if (!refUserName || !refPassword) {
+      throw new Error('Impersonation test credentials are not configured.');
+    }
+    await verifyImpersonate(await createClient(), refUserName, refPassword);
   });
 });
 

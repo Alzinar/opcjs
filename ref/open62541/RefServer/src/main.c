@@ -10,6 +10,7 @@
 
 #include <open62541/server.h>
 #include <open62541/server_config_default.h>
+#include <open62541/plugin/accesscontrol_default.h>
 #include <open62541/plugin/create_certificate.h>
 #include <open62541/plugin/log_stdout.h>
 
@@ -851,6 +852,16 @@ int main(void) {
     signal(SIGINT, stopHandler);
     signal(SIGTERM, stopHandler);
 
+    char *username = getenv("OPCUA_REF_USERNAME");
+    char *password = getenv("OPCUA_REF_PASSWORD");
+    UA_Boolean haveUsername = username && username[0] != '\0';
+    UA_Boolean havePassword = password && password[0] != '\0';
+    if(haveUsername != havePassword) {
+        UA_LOG_FATAL(UA_Log_Stdout, UA_LOGCATEGORY_SERVER,
+                     "Set both OPCUA_REF_USERNAME and OPCUA_REF_PASSWORD, or neither.");
+        return EXIT_FAILURE;
+    }
+
     UA_ByteString certificate = UA_BYTESTRING_NULL;
     UA_ByteString privateKey = UA_BYTESTRING_NULL;
     UA_StatusCode res = ensureOwnCertificate(&certificate, &privateKey);
@@ -875,6 +886,23 @@ int main(void) {
         UA_ByteString_clear(&privateKey);
         UA_Server_delete(server);
         return EXIT_FAILURE;
+    }
+
+    if(haveUsername) {
+        UA_UsernamePasswordLogin login = {
+            UA_STRING(username),
+            UA_STRING(password)
+        };
+        const UA_String tokenPolicyUri = UA_SECURITY_POLICY_NONE_URI;
+        config->allowNonePolicyPassword = true;
+        config->accessControl.clear(&config->accessControl);
+        res = UA_AccessControl_default(config, true, &tokenPolicyUri, 1, &login);
+        if(res != UA_STATUSCODE_GOOD) {
+            UA_LOG_FATAL(UA_Log_Stdout, UA_LOGCATEGORY_SERVER,
+                         "Could not configure username authentication: %s", UA_StatusCode_name(res));
+            UA_Server_delete(server);
+            return EXIT_FAILURE;
+        }
     }
 
     /* Must match the certificate's URI SubjectAltName (see ensureOwnCertificate) —

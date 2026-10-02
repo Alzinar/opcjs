@@ -1,5 +1,7 @@
 using System.Collections;
 using System.Reflection;
+using System.Security.Cryptography;
+using System.Text;
 using Opc.Ua;
 using Opc.Ua.Server;
 
@@ -10,6 +12,45 @@ namespace RefServer;
 /// </summary>
 internal sealed class RefServerHost : StandardServer
 {
+    private readonly string? userName;
+    private readonly byte[]? password;
+
+    public RefServerHost(string? userName, string? password)
+    {
+        this.userName = userName;
+        this.password = password is null ? null : Encoding.UTF8.GetBytes(password);
+    }
+
+    protected override void OnServerStarted(IServerInternal server)
+    {
+        base.OnServerStarted(server);
+
+        if (userName is null || password is null)
+        {
+            return;
+        }
+
+        server.SessionManager.ImpersonateUser += (_, args) =>
+        {
+            if (args.NewIdentity is not UserNameIdentityToken token)
+            {
+                return;
+            }
+
+            if (string.Equals(token.UserName, userName, StringComparison.Ordinal) &&
+                token.Password is { } suppliedPassword &&
+                CryptographicOperations.FixedTimeEquals(suppliedPassword, password))
+            {
+                IUserIdentity identity = new UserIdentity(token);
+                args.Identity = identity;
+                args.EffectiveIdentity = identity;
+                return;
+            }
+
+            args.IdentityValidationError = new ServiceResult(StatusCodes.BadIdentityTokenRejected);
+        };
+    }
+
     protected override MasterNodeManager CreateMasterNodeManager(
         IServerInternal server,
         ApplicationConfiguration configuration)

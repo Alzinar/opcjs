@@ -55,6 +55,11 @@ The server accepts anonymous sessions with security policy `None` or one of
 the several policies open62541 enables by default (`Basic256Sha256`,
 `Aes128Sha256RsaOaep`, `Aes256Sha256RsaPss`, ...).
 
+For opt-in username/password impersonation tests, set both `OPCUA_REF_USERNAME` and
+`OPCUA_REF_PASSWORD` before starting the server or running `RefClientNode` tests. The server then
+advertises a `UserName` token policy using `SecurityPolicy#None` and retains anonymous access.
+This is test-only configuration; do not expose these endpoints on an untrusted network.
+
 ### Notable interop quirks (fixed in opcjs-client)
 
 - libwebsockets binds its listener `iface` directly to a numeric IP or

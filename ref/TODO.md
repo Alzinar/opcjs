@@ -21,7 +21,7 @@ New shared test bodies go into `ref/opcjs/RefClientNode/tests/shared.ts`; the .N
   - [x] Server-facet nodes (OptionSet, ValueAsText, constants, AddIn/interfaces, `Locations`, namespace metadata): already built into `opcjs-server` (ns=1), no ref-server work needed
   - [x] Timer-driven `Triangle` wave (and `Static_Int32` as a never-changing variable)
 - [x] Server control channel — see [Control channel](README.md#control-channel): `DropConnections`, `CloseSessions`, `SessionCount`, `AddNamespace <uri>`, `SetMaxSessions <n>`, `SetMaxSessionTimeout <ms>` on all three servers, each smoke-tested (the client always requests a 60 s session timeout, so the server-side maximum is lowered instead; `opcjs` and `uaNet` also have a 1 s minimum)
-- [ ] Optional: configurable user tokens (username/password) on uaNet + open62541 for impersonate tests.
+- [x] Optional: configurable user tokens (username/password) on uaNet + open62541 for impersonate tests (`OPCUA_REF_USERNAME` / `OPCUA_REF_PASSWORD`).
 - [ ] Optional: opcjs RefServer with TLS (`wss://`) so security policies can be tested beyond None.
 - [ ] Update `doc/spec/interop-testing.md` "Tested features" list as items below are completed.
 
@@ -59,7 +59,7 @@ Findings while building the prerequisites (to fix or work around in the tests be
 - [ ] Base Services Client Diagnostics: `returnDiagnostics` on a read of a bad node, assert `diagnosticInfo` populated (where server supports it)
 - [ ] Security Admin – Certificate Management: unknown server cert rejected by default, trusted after `addTrusted`, trust-on-first-use policy, `validateServerCertificate` callback
 - [ ] Session Client Cancel: call slow method, `client.cancel(requestHandle)`, assert `cancelCount` / `BadRequestCancelledByClient`
-- [ ] Session Client Impersonate: anonymous → username (uaNet/open62541 only), verify the new identity is used after reconnect
+- [x] Session Client Impersonate: anonymous → username (uaNet/open62541 only), verify the new identity is used after reconnect (opt-in credentials: `OPCUA_REF_USERNAME` / `OPCUA_REF_PASSWORD`)
 - [ ] Session Client Renew NodeIds: add namespace via control channel, assert `onNamespaceTableChanged` and `remapNodeId`
 
 ### Minimum UA 2025 Client Facet

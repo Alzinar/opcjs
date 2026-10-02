@@ -39,6 +39,39 @@ export async function verifyReadInteger(client: Client): Promise<void> {
     }
 }
 
+/** Verifies rejected credentials leave the current identity intact and valid impersonation survives reconnect. */
+export async function verifyImpersonate(client: Client, userName: string, password: string): Promise<void> {
+    const integerNodeId = NodeId.newString(2, 'Integer');
+    try {
+        await client.connect();
+        let rejectedIdentity: unknown;
+        try {
+            await client.impersonate(UserIdentity.newWithUserName(userName, `${password}-invalid`));
+        } catch (error) {
+            rejectedIdentity = error;
+        }
+        expect(rejectedIdentity).toBeInstanceOf(Error);
+        const serviceResult = Number(
+            /"serviceResult":(\d+)/.exec((rejectedIdentity as Error).message)?.[1],
+        );
+        expect([StatusCode.BadIdentityTokenRejected, StatusCode.BadUserAccessDenied]).toContain(serviceResult);
+
+        let results = await client.read([integerNodeId]);
+        expect(results[0]?.statusCode).toBe(StatusCode.Good);
+
+        await client.impersonate(UserIdentity.newWithUserName(userName, password));
+        results = await client.read([integerNodeId]);
+        expect(results[0]?.statusCode).toBe(StatusCode.Good);
+
+        await client.disconnect();
+        await client.connect();
+        results = await client.read([integerNodeId]);
+        expect(results[0]?.statusCode).toBe(StatusCode.Good);
+    } finally {
+        await client.disconnect();
+    }
+}
+
 /** Reads the Value attribute of `nodeId` from `client` and returns it. */
 async function readInteger(client: Client, nodeId: NodeId): Promise<number> {
     const results = await client.read([nodeId]);

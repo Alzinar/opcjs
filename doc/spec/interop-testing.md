@@ -18,3 +18,4 @@ The goal of interop testing is to test our client and server against other frame
   - `ref/uaNet/RefServer` (UA-.NETStandard) vs `opcjs-client`: done (`ref/opcjs/RefClientNode` in Node.js, `ref/opcjs/RefClientWeb` in headless Chromium).
   - `ref/open62541/RefServer` (open62541) vs `opcjs-client`: done (`ref/opcjs/RefClientNode` in Node.js, `ref/opcjs/RefClientWeb` in headless Chromium).
   - opcjs-client vs opcjs-server, and 3rd-party clients vs opcjs-server: not yet done.
+- Username/password impersonation (uaNet and open62541 only): opt in by setting `OPCUA_REF_USERNAME` and `OPCUA_REF_PASSWORD`; anonymous-to-user switch, rejected credentials, and reconnect are covered in `ref/opcjs/RefClientNode`.

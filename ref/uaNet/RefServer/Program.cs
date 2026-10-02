@@ -9,6 +9,18 @@ const int tcpPort = 62543;
 const int wssPort = 62544;
 string tcpEndpointUrl = $"opc.tcp://localhost:{tcpPort}/RefServer";
 string wssEndpointUrl = $"opc.wss://localhost:{wssPort}/RefServer";
+string? userName = Environment.GetEnvironmentVariable("OPCUA_REF_USERNAME");
+string? password = Environment.GetEnvironmentVariable("OPCUA_REF_PASSWORD");
+if (string.IsNullOrEmpty(userName) != string.IsNullOrEmpty(password))
+{
+    throw new InvalidOperationException("Set both OPCUA_REF_USERNAME and OPCUA_REF_PASSWORD, or neither.");
+}
+if (string.IsNullOrWhiteSpace(userName))
+{
+    userName = null;
+    password = null;
+}
+
 // Shared, easily-gitignored location for every ref/ implementation's generated/received
 // certificates (see /tmp/ in .gitignore). Assumes the working directory is this project's
 // own folder (ref/uaNet/RefServer), as documented in ref/README.md.
@@ -39,12 +51,23 @@ var applicationCertificate = new CertificateIdentifier
 ((ITransportBindings<ITransportChannelFactory>)TransportBindings.Channels)
     .SetBinding(new WebSocketTransportChannelFactory());
 
-await application
+var serverConfigurationBuilder = application
     .Build($"urn:localhost:opcjs:{applicationName}", "uri:opcjs.dev:RefServer")
     .AsServer([tcpEndpointUrl, wssEndpointUrl])
     .AddUnsecurePolicyNone()
     .AddSignAndEncryptPolicies()
-    .AddUserTokenPolicy(UserTokenType.Anonymous)
+    .AddUserTokenPolicy(UserTokenType.Anonymous);
+if (userName is not null)
+{
+    serverConfigurationBuilder = serverConfigurationBuilder.AddUserTokenPolicy(new UserTokenPolicy
+    {
+        PolicyId = "username",
+        TokenType = UserTokenType.UserName,
+        SecurityPolicyUri = SecurityPolicies.None,
+    });
+}
+
+await serverConfigurationBuilder
     .AddSecurityConfiguration([applicationCertificate], pkiRoot)
     // Sample convenience only; never auto-accept untrusted certificates in production.
     .SetAutoAcceptUntrustedCertificates(true)
@@ -55,7 +78,7 @@ await application.CheckApplicationInstanceCertificatesAsync(silent: true);
 // Lowered from the 10 s default so tests can exercise session expiry quickly.
 application.ApplicationConfiguration.ServerConfiguration.MinSessionTimeout = 1000;
 
-var refServerHost = new RefServerHost();
+var refServerHost = new RefServerHost(userName, password);
 await application.StartAsync(refServerHost);
 
 // Test-only control channel for ref/opcjs/RefClientNode/tests/uaNet.test.ts (Session Client Detect

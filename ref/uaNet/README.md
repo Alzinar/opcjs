@@ -44,6 +44,11 @@ dotnet run
 The server accepts anonymous sessions with security policy `None` or
 `Basic256Sha256` (Sign / SignAndEncrypt), on both endpoints.
 
+For opt-in username/password impersonation tests, set both `OPCUA_REF_USERNAME` and
+`OPCUA_REF_PASSWORD` before starting the server or running `RefClientNode` tests. The server then
+advertises a `UserName` token policy using `SecurityPolicy#None` and retains anonymous access.
+This is test-only configuration; do not expose these endpoints on an untrusted network.
+
 ## RefClient
 
 An xUnit test project that uses the same NuGet packages as `RefServer`
