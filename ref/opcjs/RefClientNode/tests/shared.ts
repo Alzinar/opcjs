@@ -1,6 +1,6 @@
 import { expect } from 'vitest';
 import { Client, ConfigurationClient, UserIdentity } from 'opcjs-client';
-import { createDefaultCertificateStore, NodeId, StatusCode, Variant } from 'opcjs-base';
+import { createDefaultCertificateStore, NodeId, StatusCode, Variant, uaInt64 } from 'opcjs-base';
 import { certificateStoreOptions, type ServerState } from './platform.js';
 
 export async function createClientFor(endpoint: string, configure?: (configuration: ConfigurationClient) => void): Promise<Client> {
@@ -49,6 +49,28 @@ async function readInteger(client: Client, nodeId: NodeId): Promise<number> {
 
     // The Value attribute is delivered as a Variant; unwrap its inner value.
     return (result.value as Variant).value as number;
+}
+
+/**
+ * Connects `client`, writes an Int64 array to the writable `Int64Array` variable and reads it
+ * back, asserting the values (including ones beyond Number.MAX_SAFE_INTEGER) round-trip exactly.
+ */
+export async function verifyReadWriteInt64Array(client: Client): Promise<void> {
+    const values = [0n, -1n, 9007199254740993n, 9223372036854775807n, -9223372036854775808n];
+
+    try {
+        await client.connect();
+
+        const nodeId = NodeId.newString(2, 'Int64Array');
+        const writeStatus = await client.write(nodeId, values.map(uaInt64));
+        expect(writeStatus).toBe(StatusCode.Good);
+
+        const results = await client.read([nodeId]);
+        expect(results[0]?.statusCode).toBe(StatusCode.Good);
+        expect(((results[0]?.value as Variant).value as bigint[])).toEqual(values);
+    } finally {
+        await client.disconnect();
+    }
 }
 
 /**

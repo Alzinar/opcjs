@@ -4,7 +4,8 @@
  * from the opcjs stack itself, mirroring ref/uaNet/RefServer and
  * ref/open62541/RefServer.
  *
- * Exposes a single writable `Int32` variable ("Integer") under the `Objects`
+ * Exposes a writable `Int32` variable ("Integer") and a writable `Int64[]` variable
+ * ("Int64Array") under the `Objects`
  * folder, in a dedicated custom namespace (`http://opcjs.dev/UA/RefServer/`,
  * landing at ns=2), matching the other two RefServers.
  *
@@ -21,7 +22,7 @@
 import { createServer as createHttpServer, type Server as HttpServer } from 'node:http';
 import { AccessLevelFlags, AddressSpace, ObjectIds, OpcUaServer, ReferenceTypeIds } from 'opcjs-server';
 import type { VariableNode } from 'opcjs-server';
-import { NodeId, ServerStateEnum, Variant, uaInt32 } from 'opcjs-base';
+import { NodeId, ServerStateEnum, Variant, uaInt32, uaInt64 } from 'opcjs-base';
 
 const port = 62547;
 const endpointPath = '/RefServer';
@@ -50,6 +51,22 @@ function buildAddressSpace(): { addressSpace: AddressSpace; integerNodeId: NodeI
     NodeId.newNumeric(0, ObjectIds.ObjectsFolder),
     NodeId.newNumeric(0, ReferenceTypeIds.Organizes),
     integerVariable.nodeId,
+  );
+
+  const int64ArrayNodeId = NodeId.newString(customNamespaceIndex, 'Int64Array');
+  const int64ArrayVariable = addressSpace.addVariable(
+    int64ArrayNodeId,
+    'Int64Array',
+    NodeId.newNumeric(0, 8), // Int64
+    Variant.newFrom([uaInt64(0n)]),
+    1,
+    undefined,
+    AccessLevelFlags.CurrentRead | AccessLevelFlags.CurrentWrite,
+  );
+  addressSpace.addReference(
+    NodeId.newNumeric(0, ObjectIds.ObjectsFolder),
+    NodeId.newNumeric(0, ReferenceTypeIds.Organizes),
+    int64ArrayVariable.nodeId,
   );
 
   return { addressSpace, integerNodeId, integerVariable };

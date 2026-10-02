@@ -47,6 +47,31 @@ public sealed class OpcjsRefServerTests(OpcjsServerFixture server)
     }
 
     [Fact]
+    public async Task WritesAndReadsBackAnInt64ArrayOnTheOpcjsRefServer()
+    {
+        using ISession session = await server.ConnectAsync();
+        try
+        {
+            long[] values = [0, -1, 9007199254740993, long.MaxValue, long.MinValue];
+            var nodeId = new NodeId("Int64Array", (ushort)session.NamespaceUris.GetIndex(OpcjsServerFixture.NamespaceUri));
+
+            WriteResponse response = await session.WriteAsync(
+                null,
+                [new WriteValue { NodeId = nodeId, AttributeId = Attributes.Value, Value = new DataValue(new Variant(values)) }],
+                CancellationToken.None);
+            Assert.True(StatusCode.IsGood(response.Results[0]));
+
+            DataValue value = await session.ReadValueAsync(nodeId);
+            Assert.True(StatusCode.IsGood(value.StatusCode));
+            Assert.Equal(values, Assert.IsType<long[]>(value.Value));
+        }
+        finally
+        {
+            await session.CloseAsync(CancellationToken.None);
+        }
+    }
+
+    [Fact]
     public async Task ReceivesChangingValuesForTheIntegerVariableFromTheOpcjsRefServer()
     {
         using ISession session = await server.ConnectAsync();

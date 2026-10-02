@@ -768,6 +768,39 @@ export class Client {
   }
 
   /**
+   * Writes the Value attribute of a single Node.
+   *
+   * The returned object is a `Promise` that also exposes `requestHandle` — the
+   * OPC UA `requestHandle` assigned to the underlying `WriteRequest`.
+   *
+   * @example
+   * ```ts
+   * const statusCode = await client.write(nodeId, [uaInt64(1n), uaInt64(2n)])
+   * ```
+   *
+   * @param nodeId - NodeId of the Variable to write.
+   * @param value - Scalar, or homogeneous non-empty array, of OPC UA values.
+   * @param options - Request options (e.g. `returnDiagnostics`).
+   * @returns A promise resolving to the OPC UA StatusCode of the write.
+   */
+  write(
+    nodeId: NodeId,
+    value: CallMethodArgument,
+    options?: RequestOptions,
+  ): Promise<number> & { requestHandle: number } {
+    const requestHandle = nextRequestHandle()
+    const promise = this.withSessionRefresh(async () => {
+      const results = await this.attributeService!.WriteValue(
+        [{ nodeId, value: Variant.newFrom(value as Parameters<typeof Variant.newFrom>[0]) }],
+        options?.returnDiagnostics,
+        requestHandle,
+      )
+      return results[0]?.statusCode ?? StatusCode.BadUnexpectedError
+    })
+    return Object.assign(promise, { requestHandle })
+  }
+
+  /**
    * Method for calling a single method on the server.
    *
    * The returned object is a `Promise` that also exposes `requestHandle` — the

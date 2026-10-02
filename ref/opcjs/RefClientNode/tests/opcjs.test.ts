@@ -8,7 +8,7 @@
  */
 
 import { describe, it } from 'vitest';
-import { createClientFor, verifyDetectShutdown, verifyGetEndpoints, verifyReadInteger, verifySubscribeChangingNumber } from './shared.js';
+import { createClientFor, verifyDetectShutdown, verifyGetEndpoints, verifyReadInteger, verifyReadWriteInt64Array, verifySubscribeChangingNumber } from './shared.js';
 import { downgradeWssToWs, setServerStateHttp, type ServerState } from './platform.js';
 import { Client } from 'opcjs-client';
 
@@ -39,6 +39,14 @@ describe('getEndpoints', () => {
         const client = await createClient();
 
         await verifyReadInteger(client);
+    });
+});
+
+describe('write', () => {
+    it('writes and reads back an Int64 array on the opcjs RefServer', async () => {
+        const client = await createClient();
+
+        await verifyReadWriteInt64Array(client);
     });
 });
 

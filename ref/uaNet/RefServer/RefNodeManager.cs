@@ -5,8 +5,8 @@ using System.Threading;
 namespace RefServer;
 
 /// <summary>
-/// Node manager that exposes a single writable Int32 variable ("Integer")
-/// under the standard Objects folder.
+/// Node manager that exposes a writable Int32 variable ("Integer") and a writable
+/// Int64[] variable ("Int64Array") under the standard Objects folder.
 /// </summary>
 internal sealed class RefNodeManager : CustomNodeManager2
 {
@@ -49,6 +49,24 @@ internal sealed class RefNodeManager : CustomNodeManager2
             references.Add(new NodeStateReference(ReferenceTypeIds.Organizes, false, integerVariable.NodeId));
 
             AddPredefinedNode(SystemContext, integerVariable);
+
+            var int64ArrayVariable = new BaseDataVariableState(null)
+            {
+                NodeId = new NodeId("Int64Array", NamespaceIndex),
+                BrowseName = new QualifiedName("Int64Array", NamespaceIndex),
+                DisplayName = new LocalizedText("Int64Array"),
+                TypeDefinitionId = VariableTypeIds.BaseDataVariableType,
+                ReferenceTypeId = ReferenceTypeIds.Organizes,
+                DataType = DataTypeIds.Int64,
+                ValueRank = ValueRanks.OneDimension,
+                ArrayDimensions = new ReadOnlyList<uint>(new List<uint> { 0 }),
+                AccessLevel = AccessLevels.CurrentReadOrWrite,
+                UserAccessLevel = AccessLevels.CurrentReadOrWrite,
+                Value = new long[] { 0 },
+            };
+            int64ArrayVariable.AddReference(ReferenceTypeIds.Organizes, true, ObjectIds.ObjectsFolder);
+            references.Add(new NodeStateReference(ReferenceTypeIds.Organizes, false, int64ArrayVariable.NodeId));
+            AddPredefinedNode(SystemContext, int64ArrayVariable);
 
             _integerVariable = integerVariable;
         }

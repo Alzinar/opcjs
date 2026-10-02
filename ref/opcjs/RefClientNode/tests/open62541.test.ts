@@ -9,7 +9,7 @@
 
 import { describe, it } from 'vitest';
 import { Client } from 'opcjs-client';
-import { createClientFor, verifyDetectShutdown, verifyGetEndpoints, verifyReadInteger, verifySubscribeChangingNumber } from './shared.js';
+import { createClientFor, verifyDetectShutdown, verifyGetEndpoints, verifyReadInteger, verifyReadWriteInt64Array, verifySubscribeChangingNumber } from './shared.js';
 import { setServerStateTcp } from './platform.js';
 
 const endpointUrl = 'wss://127.0.0.1:62546/RefServer';
@@ -34,6 +34,15 @@ describe('getEndpoints', () => {
         const client = await createClient();
 
         await verifyReadInteger(client);
+    });
+});
+
+describe('write', () => {
+
+    it('writes and reads back an Int64 array on the open62541 RefServer', async () => {
+        const client = await createClient();
+
+        await verifyReadWriteInt64Array(client);
     });
 });
 

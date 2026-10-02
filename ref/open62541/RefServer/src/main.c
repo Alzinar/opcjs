@@ -246,6 +246,27 @@ static UA_StatusCode addIntegerVariable(UA_Server *server, UA_NodeId *outNodeId)
         browseName, UA_NODEID_NULL, attr, NULL, NULL);
 }
 
+/* Adds the writable "Int64Array" variable (Int64[]) next to "Integer", used by the
+ * read/write-array interop tests. */
+static UA_StatusCode addInt64ArrayVariable(UA_Server *server) {
+    UA_UInt16 nsIdx = UA_Server_addNamespace(server, "http://opcjs.dev/UA/RefServer/");
+
+    UA_VariableAttributes attr = UA_VariableAttributes_default;
+    UA_Int64 initialValue[1] = {0};
+    UA_Variant_setArray(&attr.value, initialValue, 1, &UA_TYPES[UA_TYPES_INT64]);
+    attr.displayName = UA_LOCALIZEDTEXT("en-US", "Int64Array");
+    attr.dataType = UA_TYPES[UA_TYPES_INT64].typeId;
+    attr.valueRank = UA_VALUERANK_ONE_DIMENSION;
+    UA_UInt32 arrayDimensions[1] = {0};
+    attr.arrayDimensionsSize = 1;
+    attr.arrayDimensions = arrayDimensions;
+    attr.accessLevel = UA_ACCESSLEVELMASK_READ | UA_ACCESSLEVELMASK_WRITE;
+
+    return UA_Server_addVariableNode(
+        server, UA_NODEID_STRING(nsIdx, "Int64Array"), UA_NS0ID(OBJECTSFOLDER), UA_NS0ID(ORGANIZES),
+        UA_QUALIFIEDNAME(nsIdx, "Int64Array"), UA_NODEID_NULL, attr, NULL, NULL);
+}
+
 /* Increments the Integer variable every time this repeated callback fires, so
  * subscribing clients observe a changing value without a client-initiated Write. */
 static void incrementInteger(UA_Server *server, void *data) {
@@ -324,6 +345,14 @@ int main(void) {
     if(res != UA_STATUSCODE_GOOD) {
         UA_LOG_FATAL(UA_Log_Stdout, UA_LOGCATEGORY_SERVER,
                      "Could not add the Integer variable: %s", UA_StatusCode_name(res));
+        UA_Server_delete(server);
+        return EXIT_FAILURE;
+    }
+
+    res = addInt64ArrayVariable(server);
+    if(res != UA_STATUSCODE_GOOD) {
+        UA_LOG_FATAL(UA_Log_Stdout, UA_LOGCATEGORY_SERVER,
+                     "Could not add the Int64Array variable: %s", UA_StatusCode_name(res));
         UA_Server_delete(server);
         return EXIT_FAILURE;
     }

@@ -1,6 +1,6 @@
 import {
-    DiagnosticInfo, getLogger, ISecureChannel, NodeId, QualifiedName, ReadRequest, ReadResponse,
-    ReadValueId, StatusCode, TimestampsToReturnEnum,
+    DataValue, DiagnosticInfo, getLogger, ISecureChannel, NodeId, QualifiedName, ReadRequest, ReadResponse,
+    ReadValueId, StatusCode, TimestampsToReturnEnum, Variant, WriteRequest, WriteResponse, WriteValue,
 } from 'opcjs-base'
 
 import { AttrIdValue } from './attributeServiceAttributes.js'
@@ -56,6 +56,42 @@ export class AttributeService extends ServiceBase {
             });
         }
         return results;
+    }
+
+    /**
+     * Writes the Value attribute of one or more Nodes (OPC UA Part 4, Section 5.10.4).
+     * @param writes - NodeIds paired with the Variant to write to each one.
+     * @param returnDiagnostics - Bitmask of diagnostic fields to request (OPC UA Part 4, §7.15). Default: 0.
+     * @returns One result per write, holding the raw status code and optional diagnostic info.
+     */
+    async WriteValue(
+        writes: { nodeId: NodeId, value: Variant }[],
+        returnDiagnostics = 0,
+        requestHandle?: number,
+    ): Promise<{ statusCode: number, diagnosticInfo?: DiagnosticInfo }[]> {
+        const nodesToWrite = writes.map(w => {
+            const writeValue = new WriteValue();
+            writeValue.nodeId = w.nodeId;
+            writeValue.attributeId = AttrIdValue;
+            writeValue.indexRange = '';
+            writeValue.value = new DataValue(w.value);
+            return writeValue;
+        });
+
+        const request = new WriteRequest();
+        request.requestHeader = this.createRequestHeader(returnDiagnostics, requestHandle);
+        request.nodesToWrite = nodesToWrite;
+
+        this.logger.debug("Sending WriteRequest...");
+        const response = await this.secureChannel.issueServiceRequest(request) as WriteResponse;
+
+        this.checkServiceResult(response.responseHeader?.serviceResult, 'WriteRequest')
+
+        const diagInfos = response.diagnosticInfos ?? []
+        return (response.results ?? []).map((statusCode, i) => ({
+            statusCode: statusCode ?? StatusCode.Good,
+            diagnosticInfo: diagInfos[i],
+        }));
     }
 
     constructor(authToken: NodeId, secureChannel: ISecureChannel) {
